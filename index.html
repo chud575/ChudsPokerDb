@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PokerStars Hand Replayer</title>
+<link rel="stylesheet" href="css/styles.css?v=20261002h">
+</head>
+<body>
+
+<header id="topbar">
+  <button class="btn" id="navHome" title="Main menu">☰</button>
+  <div class="brand">♠ <span>Hand Replayer</span></div>
+
+
+  <div class="spacer"></div>
+
+  <div id="replayerTools">
+  <div class="heroPick">
+    <label>Hero</label>
+    <select id="heroSelect"><option value="">(auto)</option></select>
+  </div>
+  <label class="chk"><input type="checkbox" id="xray"> X-ray</label>
+  <button class="btn" id="teachToggle" title="Markup &amp; lesson tools">✎ Teach</button>
+  <label class="chk">Equity
+    <select id="eqSims">
+      <option value="0">off</option>
+      <option value="10000">10k</option>
+      <option value="50000" selected>50k</option>
+      <option value="200000">200k</option>
+    </select>
+  </label>
+  <label class="chk"><input type="checkbox" id="fourColor" checked> 4-colour</label>
+  <label class="chk"><input type="checkbox" id="blackBg"> Black bg</label>
+  <div id="loadStat" class="stat">no hands loaded</div>
+  </div>
+</header>
+
+<div id="errBar"></div>
+<div id="dropHint">Drop PokerStars hand-history .txt files here</div>
+
+<main id="viewReplayer" class="screen">
+  <!-- ------------------------------------------------ hand list -->
+  <aside id="left">
+    <div class="filters">
+      <input type="search" id="fSearch" placeholder="search player, hand #, cards…">
+      <div class="row">
+        <select id="fGame"><option value="">All games</option></select>
+        <select id="fFile"><option value="">All files</option></select>
+      </div>
+      <div class="row">
+        <select id="fResult">
+          <option value="">Any result</option>
+          <option value="win">Hero won</option>
+          <option value="lose">Hero lost</option>
+          <option value="sd">Went to showdown</option>
+          <option value="vpip">Hero put money in</option>
+        </select>
+        <select id="fMark">
+          <option value="">Any hand</option>
+          <option value="star">★ Tagged for review</option>
+          <option value="note">★ Reviewed (annotated)</option>
+          <option value="any">★ Either</option>
+        </select>
+        <select id="fSort">
+          <option value="seq">Chronological</option>
+          <option value="pot">Biggest pot</option>
+          <option value="win">Biggest win</option>
+          <option value="loss">Biggest loss</option>
+        </select>
+      </div>
+    </div>
+    <div id="listMeta" class="listMeta"></div>
+    <div id="handList" class="handList"></div>
+  </aside>
+
+  <!-- ------------------------------------------------ table -->
+  <section id="stage">
+    <div id="handHead">
+      <div class="hhLine">
+        <button id="starBtn" class="star big" title="Tag this hand for review (s)">☆</button>
+        <div id="hhTitle">Load a hand history to begin</div>
+        <button id="planBtn" class="btn planBtn" title="Add this hand to a lesson">+ Lesson</button>
+      </div>
+      <div id="hhSub"></div>
+    </div>
+
+    <div id="mkBar"></div>
+
+    <div id="tableWrap">
+      <div id="felt">
+        <div id="feltInner">
+          <div id="centre">
+            <div id="streetTag"></div>
+            <div id="board"></div>
+            <div id="potBox"><span class="lbl">POT</span> <span id="potVal">0</span></div>
+          </div>
+        </div>
+        <div id="seats"></div>
+      </div>
+    </div>
+
+    <div id="teachBand"></div>
+
+    <div id="eqBox">
+      <div id="eqBar"></div>
+      <div id="eqTxt"></div>
+      <div id="eqRangeWrap">
+        <span class="lb">range</span>
+        <input type="range" id="eqRange" min="5" max="100" step="5" value="100">
+        <span id="eqRangeVal">any two</span>
+      </div>
+    </div>
+
+    <div id="actionBanner"><span id="actionText"></span></div>
+
+    <div id="controls">
+      <button class="ctl" id="prevHand"   title="Previous hand (↑)">⏮ hand</button>
+      <button class="ctl" id="firstStep"  title="Start of hand (Home)">|◀</button>
+      <button class="ctl" id="prevStreet" title="Previous street (Shift+←)">◀◀</button>
+      <button class="ctl" id="prevStep"   title="Previous action (←)">◀</button>
+      <button class="ctl play" id="playBtn" title="Play / pause (space)">▶</button>
+      <button class="ctl" id="nextStep"   title="Next action (→)">▶</button>
+      <button class="ctl" id="nextStreet" title="Next street (Shift+→)">▶▶</button>
+      <button class="ctl" id="lastStep"   title="End of hand (End)">▶|</button>
+      <button class="ctl" id="nextHand"   title="Next hand (↓)">hand ⏭</button>
+      <span class="speed"><label>speed</label><input type="range" id="speed" min="150" max="2500" step="50" value="900"></span>
+      <span id="stepCount" class="stepCount"></span>
+    </div>
+    <div id="scrubWrap">
+      <input type="range" id="scrub" min="0" max="0" value="0">
+      <div id="scrubMarks"></div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------ side panel -->
+  <aside id="right">
+    <div class="tabs">
+      <button class="tab active" data-pane="paneLog">Action</button>
+      <button class="tab" data-pane="paneInfo">Hand</button>
+      <button class="tab" data-pane="paneRaw">Raw</button>
+      <button class="tab" data-pane="paneStats">Stats</button>
+      <button class="tab" data-pane="paneTeach">Teach</button>
+      <button class="tab" data-pane="paneSolver">Solver</button>
+    </div>
+    <div id="paneLog"  class="pane active"></div>
+    <div id="paneInfo" class="pane"></div>
+    <div id="paneRaw"  class="pane"><pre id="rawText"></pre></div>
+    <div id="paneStats" class="pane"></div>
+    <div id="paneTeach" class="pane"></div>
+    <div id="paneSolver" class="pane"></div>
+  </aside>
+</main>
+
+<section id="viewHome" class="screen">
+  <div class="menuWrap">
+    <h1>Poker study</h1>
+    <div id="homeCounts" class="homeCounts"></div>
+    <div class="menu">
+      <button class="menuCard" data-go="library"><b>Library</b><small>Import a tournament once — it stays here</small></button>
+      <button class="menuCard" data-go="replayer"><b>Replay hands</b><small>Step through, annotate, teach</small></button>
+      <button class="menuCard" data-go="players"><b>Player database</b><small>Stats on everyone, kept separate by game</small></button>
+      <button class="menuCard" data-go="me"><b>Your numbers</b><small>The same breakdown, for you</small></button>
+      <button class="menuCard" data-go="tourneys"><b>Tournament Overview</b><small>Every tournament's final standings, and your record across them</small></button>
+      <button class="menuCard" data-go="starts"><b>Starting hands</b><small>Every hand you were dealt — how often you play it, win with it, and whether it pays</small></button>
+      <button class="menuCard" data-go="luck"><b>Skill vs luck</b><small>All-ins against their equity, suckouts for and against, and your result with the luck taken out</small></button>
+      <button class="menuCard" data-go="lessons"><b>Lessons</b><small>Named groups of annotated hands, in teaching order</small></button>
+    </div>
+  </div>
+</section>
+
+<section id="viewLibrary" class="screen">
+  <div class="screenHead">
+    <b>Library</b><span id="libCount" class="dim"></span>
+    <div class="spacer"></div>
+    <label class="btn primary file">Import files
+      <input type="file" id="fileInput" multiple accept=".txt,.log,.rtf,text/plain,text/rtf">
+    </label>
+    <label class="btn file">Import a folder
+      <input type="file" id="dirInput" webkitdirectory directory multiple>
+    </label>
+    <button class="btn" id="pasteBtn">Paste text</button>
+    <button class="btn" id="bldNew" title="Compose a hand from scratch">✚ New hand</button>
+    <button class="btn" id="libBackup" title="Everything — hands, markup, notes, narration, stars, lessons — in one file">⭳ Back up</button>
+    <label class="btn file" title="Load a backup made here or anywhere else">⭱ Restore
+      <input type="file" id="libRestore" accept=".json,application/json">
+    </label>
+    <button class="btn" id="libClear">Delete everything</button>
+  </div>
+  <div id="libStatus" class="screenNote"></div>
+  <div id="libBody" class="screenBody"></div>
+</section>
+
+<section id="viewPlayers" class="screen">
+  <aside class="plSide">
+    <div class="screenHead"><b>Players</b></div>
+    <input type="search" id="plSearch" placeholder="search players…">
+    <select id="plGame"><option value="">All games (kept separate)</option></select>
+    <select id="plSort">
+      <option value="hands">Most hands</option>
+      <option value="tourneys">Most tournaments</option>
+      <option value="net">Biggest tournament winnings</option>
+      <option value="roi">Best tournament ROI (5+ played)</option>
+    </select>
+    <div id="plList" class="plList"></div>
+  </aside>
+  <div id="plDetail" class="screenBody"></div>
+</section>
+
+<section id="viewTourneys" class="screen">
+  <aside class="plSide">
+    <div class="screenHead">
+      <b>Tournaments</b>
+      <div class="spacer"></div>
+      <label class="btn file" title="The “Tournament History” email from PokerStars, saved as .txt or .rtf">⭱ Import results
+        <input type="file" id="toImport" multiple accept=".txt,.rtf,text/plain,text/rtf">
+      </label>
+    </div>
+    <select id="toAcct" title="Whose tournaments to show"></select>
+    <input type="search" id="toSearch" placeholder="tournament #, event, or a player in it…">
+    <div id="toList" class="plList"></div>
+  </aside>
+  <div id="toDetail" class="screenBody"></div>
+</section>
+
+<section id="viewStarts" class="screen">
+  <div class="shMain">
+    <div class="screenHead shHead">
+      <b>Starting hands</b>
+      <select id="shHero" title="Whose hands"></select>
+      <select id="shGame" title="Game — each game is kept separate"></select>
+      <select id="shMode" title="Group similar hands, or list each one">
+        <option value="group">By kind of hand</option>
+        <option value="exact">Every hand</option>
+      </select>
+      <label class="shMinL">dealt at least <input type="number" id="shMin" min="1" value="1"></label>
+      <input type="search" id="shFind" placeholder="find a hand…">
+    </div>
+    <div id="shBody" class="screenBody"></div>
+  </div>
+  <aside id="shDetail" class="screenBody shDetail"></aside>
+</section>
+
+<section id="viewLuck" class="screen">
+  <div class="screenHead shHead">
+    <b>Skill vs luck</b>
+    <select id="lkHero" title="Whose hands — your accounts, or any opponent whose cards were shown"></select>
+    <input type="search" id="lkFind" placeholder="find an opponent…">
+    <select id="lkGame" title="Game"></select>
+  </div>
+  <div id="lkBody" class="screenBody"></div>
+</section>
+
+<section id="viewMe" class="screen">
+  <div class="screenHead"><b>Your numbers</b></div>
+  <div id="meBody" class="screenBody"></div>
+</section>
+
+<section id="viewLessons" class="screen">
+  <aside class="plSide">
+    <div class="screenHead">
+      <b>Lessons</b>
+      <div class="spacer"></div>
+      <button class="btn primary" id="planNew">+ New</button>
+    </div>
+    <label class="btn file planImp">⭱ Import a lesson file
+      <input type="file" id="planImport" accept=".json,application/json">
+    </label>
+    <div id="planList" class="plList"></div>
+  </aside>
+  <div id="planBody" class="screenBody"></div>
+</section>
+
+<div id="toast"></div>
+
+<div id="bldModal" class="modal">
+  <div class="bldBox">
+    <div class="bldHead">
+      <b>Build a hand</b>
+      <span class="tHint">Deal the cards, list the action — it writes real PokerStars text, so everything else in the app works on it.</span>
+      <button class="btn" id="bldClose">close</button>
+    </div>
+    <div class="bldBody">
+      <div id="bldForm" class="bldForm"></div>
+      <div class="bldSide">
+        <div id="bldPick" class="bldPick"></div>
+        <div id="bldStatus" class="bldStatus"></div>
+        <pre id="bldText"></pre>
+        <div class="bldBtns">
+          <button class="btn primary" id="bldOpen">save &amp; open</button>
+          <button class="btn" id="bldSave">save</button>
+          <button class="btn" id="bldDl">download .txt</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="pasteModal" class="modal">
+  <div class="modalBox">
+    <h3>Paste hand history text</h3>
+    <textarea id="pasteArea" placeholder="PokerStars Hand #…"></textarea>
+    <div class="modalBtns">
+      <button class="btn" id="pasteCancel">Cancel</button>
+      <button class="btn primary" id="pasteLoad">Load</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/db.js?v=20261002h"></script>
+<script src="js/parser.js?v=20261002h"></script>
+<script src="js/engine.js?v=20261002h"></script>
+<script src="js/equity.js?v=20261002h"></script>
+<script src="js/lesson.js?v=20261002h"></script>
+<script src="js/markup.js?v=20261002h"></script>
+<script src="js/teach.js?v=20261002h"></script>
+<script src="js/builder.js?v=20261002h"></script>
+<script src="js/buildui.js?v=20261002h"></script>
+<script src="js/tsummary.js?v=20261002h"></script>
+<script src="js/playmoney.js?v=20261002h"></script>
+<script src="js/stats.js?v=20261002h"></script>
+<script src="js/home.js?v=20261002h"></script>
+<script src="js/tourneys.js?v=20261002h"></script>
+<script src="js/starthands.js?v=20261002h"></script>
+<script src="js/luck.js?v=20261002h"></script>
+<script src="js/luckui.js?v=20261002h"></script>
+<script src="js/plans.js?v=20261002h"></script>
+<script src="js/solver.js?v=20261002h"></script>
+<script src="js/solverui.js?v=20261002h"></script>
+<script src="js/app.js?v=20261002h"></script>
+</body>
+</html>
