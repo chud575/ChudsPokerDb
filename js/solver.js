@@ -14,7 +14,10 @@
 (function (global) {
   'use strict';
 
-  const DEF = 'http://localhost:5055';
+  // opened off disk or on this machine: the solver on this machine.  Served from a
+  // host of its own: that host, where HORSE+ answers at the same address.
+  const LOCAL = typeof location === 'undefined' || location.protocol === 'file:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  const DEF = LOCAL ? 'http://localhost:5055' : location.origin;
   const KEY = 'psreplayer.solver.url';
 
   /* games the solver answers for, and how its payload is shaped */
