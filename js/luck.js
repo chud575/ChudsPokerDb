@@ -35,7 +35,7 @@
 (function (global) {
   'use strict';
 
-  const VER = 5;
+  const VER = 6;
   const FLOP_ORDER = ['preflop', 'flop', 'turn', 'river'];
   const STUD_ORDER = ['3rd', '4th', '5th', '6th', '7th'];
   const SIMS = 3000;
@@ -293,7 +293,8 @@
         g = fam === 'flop' ? [0, 1, 2, 3][FLOP_ORDER.indexOf(a.street)] : stage === 3 ? 0 : stage <= 5 ? 1 : stage === 6 ? 2 : 3;
         if (g === undefined) g = 0;
       }
-      const nothingLeft = stage === 'end' || stage === 5 || stage === 7;
+      // no cards to come: the river in flop games (5 board cards), seventh street in stud, after the last draw
+      const nothingLeft = stage === 'end' || (fam === 'flop' && stage === 5) || (fam === 'stud' && stage === 7);
       const e = nothingLeft ? share : eqAt(stage);
       if (e == null) continue;
       const m0 = global.PSEngine.moneyFor(h, a.i), m1 = global.PSEngine.moneyFor(h, a.i + 1);

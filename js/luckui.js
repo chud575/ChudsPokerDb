@@ -673,11 +673,8 @@
       }
     }
     box.appendChild(ins);
-    if (res.recs.length) {
-      const big = res.recs.slice().sort((a, b) => Math.abs(b.luck) - Math.abs(a.luck)).slice(0, 6);
-      box.appendChild(el('div', 'dim trNote', 'The hands where luck moved the most chips:'));
-      box.appendChild(handTable(big, { plain: true }));
-    }
+    // the review: stack graph, key hands tagged, starting hands against the EV tables, solver check
+    if (global.PSReview) { try { await PSReview.render(box, tid, who, hs, res); } catch (e) { console.warn('review', e); } }
   }
 
   function init() {
