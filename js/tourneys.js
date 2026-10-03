@@ -129,6 +129,8 @@
     all = (await PSDB.allSummaries()).concat(await PSHome.playTourneys())
       .sort((a, b) => (b.start || b.end) - (a.start || a.end));
     handTids = new Set((await PSDB.allTourneys()).map(t => t.id));
+    const chops = await PSHome.getChops();
+    all.forEach(t => { if (chops[t.id]) PSTSum.applyChop(t, chops[t.id]); });
     // your accounts: whoever requested a history, plus the heroes of your hand histories
     const names = new Set(PSHome.accounts);
     all.forEach(t => { if (t.hero && t.hero.name) names.add(t.hero.name); });
@@ -674,6 +676,85 @@
     return box;
   }
 
+  /* ---------- a chop: who split the prizes, and each one's percentage ---------- */
+  function chopDialog(t) {
+    const old = document.querySelector('.chopModal');
+    if (old) old.remove();
+    // the players who could be in a deal: everyone paid, by place — and you
+    const official = r => r.official != null ? r.official : r.amount;
+    const best = {};
+    t.results.forEach(r => { if (official(r) > 0 && (!best[r.name] || official(r) > official(best[r.name]))) best[r.name] = r; });
+    const cands = Object.values(best).sort((a, b) => a.place - b.place).slice(0, 12);
+    const wrap = el('div', 'modal open chopModal');
+    const box = el('div', 'modalBox chopBox');
+    box.appendChild(el('h3', null, 'Chop — tournament #' + t.id));
+    box.appendChild(el('p', 'dim', cands.length ? 'Tick everyone who was in the deal and give each one’s share of the combined prizes. Fill in yours and the rest is split evenly among the others until you change them.'
+      : 'Nobody in this tournament has a prize to split.'));
+    const tbl = el('table', 'tbl chopTbl');
+    const hr = tbl.insertRow();
+    ['In the deal', 'Player', 'Place', 'Listed prize', 'Share %', 'Paid'].forEach(h => { const th = document.createElement('th'); th.textContent = h; hr.appendChild(th); });
+    const cur = (t.chop && t.chop.pct) || {};
+    const rows = cands.map(r => {
+      const tr = tbl.insertRow();
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = cur[r.name] != null;
+      tr.insertCell().appendChild(cb);
+      tr.insertCell().textContent = r.name + (r.name === acct ? '  (you)' : '');
+      tr.insertCell().textContent = PSTSum.ord(r.place);
+      tr.insertCell().textContent = M(official(r), t);
+      const inp = document.createElement('input'); inp.type = 'number'; inp.min = 0; inp.max = 100; inp.step = 'any'; inp.value = cur[r.name] != null ? cur[r.name] : '';
+      inp.disabled = !cb.checked;
+      tr.insertCell().appendChild(inp);
+      const paid = tr.insertCell();
+      if (r.name === acct) tr.className = 'me';
+      return { r: r, cb: cb, inp: inp, paid: paid, touched: cur[r.name] != null };
+    });
+    box.appendChild(tbl);
+    const sum = el('div', 'chopSum');
+    box.appendChild(sum);
+    const btns = el('div', 'modalBtns');
+    const cancel = el('button', 'btn', 'Cancel');
+    cancel.onclick = () => wrap.remove();
+    const save = el('button', 'btn primary', 'Save chop');
+    const refresh = from => {
+      const inRows = rows.filter(x => x.cb.checked);
+      rows.forEach(x => { x.inp.disabled = !x.cb.checked; if (!x.cb.checked) { x.inp.value = ''; x.touched = false; } });
+      if (from) from.touched = from.inp.value !== '';
+      // whatever has not been typed shares what is left
+      const typed = inRows.filter(x => x.touched), free = inRows.filter(x => !x.touched);
+      const left = 100 - typed.reduce((a, x) => a + (+x.inp.value || 0), 0);
+      if (typed.length) free.forEach(x => { x.inp.value = Math.max(0, Math.round(left / free.length * 100) / 100); });
+      const pool = inRows.reduce((a, x) => a + official(x.r), 0);
+      const total = inRows.reduce((a, x) => a + (+x.inp.value || 0), 0);
+      rows.forEach(x => { x.paid.textContent = x.cb.checked && x.inp.value !== '' ? M(pool * (+x.inp.value) / 100, t) : ''; });
+      const ok = inRows.length >= 2 && Math.abs(total - 100) < 0.05 && inRows.every(x => +x.inp.value > 0);
+      sum.textContent = inRows.length < 2 ? 'Tick at least two players.'
+        : 'Combined prizes ' + M(pool, t) + ' · shares add up to ' + (Math.round(total * 100) / 100) + '%' + (ok ? '' : ' — they need to total 100%');
+      sum.className = 'chopSum ' + (ok ? 'okNote' : 'warnNote');
+      save.disabled = !ok;
+    };
+    save.onclick = async () => {
+      const pct = {};
+      rows.filter(x => x.cb.checked).forEach(x => { pct[x.r.name] = Math.round(+x.inp.value * 100) / 100; });
+      await PSHome.setChop(t.id, { pct: pct });
+      wrap.remove();
+      PSHome.toast('Chop saved — results now use what was actually paid');
+      await render();
+    };
+    btns.appendChild(cancel);
+    if (t.chop) {
+      const rm = el('button', 'btn', 'Remove chop');
+      rm.onclick = async () => { await PSHome.setChop(t.id, null); wrap.remove(); PSHome.toast('Chop removed — back to the listed prizes', 'info'); await render(); };
+      btns.appendChild(rm);
+    }
+    btns.appendChild(save);
+    box.appendChild(btns);
+    rows.forEach(x => { x.cb.onchange = () => refresh(); x.inp.oninput = () => refresh(x); });
+    wrap.appendChild(box);
+    wrap.onclick = e => { if (e.target === wrap) wrap.remove(); };
+    document.body.appendChild(wrap);
+    refresh();
+  }
+
   function campaignOf(name, tid) {
     const perf = PSHome.perfCache();
     return perf && perf[name] && PSTSum.campaigns(perf[name]).find(x =>
@@ -709,6 +790,10 @@
       hb.onclick = () => PSHome.openTourney(t.id);
       bar.appendChild(hb);
     }
+    const chb = el('button', 'btn' + (t.chop ? ' primary' : ''), t.chop ? 'Edit chop' : 'Chop');
+    chb.title = 'Record a deal: who split the prizes, and what percentage each took';
+    chb.onclick = () => chopDialog(t);
+    bar.appendChild(chb);
     const cp = el('button', 'btn', 'Copy');
     cp.onclick = () => { try { navigator.clipboard.writeText(t.raw); PSHome.toast('Copied tournament #' + t.id); } catch (e) { } };
     bar.appendChild(cp);
@@ -735,6 +820,13 @@
     pre.forEach((x, i) => head.appendChild(el('div', i === 0 ? 'ttl' : t.tags.includes(x) ? 'tag' : null, x)));
     doc.appendChild(head);
     if (t.synthetic) doc.appendChild(entriesEditor(t));
+    if (t.chop) {
+      const cb = el('div', 'pmEdit');
+      cb.appendChild(el('b', null, 'Chop'));
+      cb.appendChild(el('span', 'dim', Object.keys(t.chop.pct).map(n => n + ' ' + t.chop.pct[n] + '%').join(' · ') + ' of ' + M(t.chop.pool, t) +
+        ' — the standings below show what was actually paid; results and ROI use those amounts'));
+      doc.appendChild(cb);
+    }
     if (t.playMoney) {
       const sc = el('div', 'pmEdit');
       sc.appendChild(el('b', null, 'Play money — scored by the payout chart'));
@@ -783,8 +875,10 @@
       nc.appendChild(a);
       row.insertCell().textContent = r.entry > 1 ? '[' + r.entry + ']' : '';
       row.insertCell().textContent = r.country;
-      row.insertCell().textContent = r.qualified ? 'qualified for the target tournament'
+      const pcell = row.insertCell();
+      pcell.textContent = r.qualified ? 'qualified for the target tournament'
         : r.amount ? M(r.amount, t) : (r.note || '');
+      if (r.chop != null) { pcell.appendChild(el('span', 'chopTag', 'chop ' + r.chop + '% · listed ' + M(r.official, t))); row.classList.add('chopped'); }
       row.insertCell().textContent = r.pct != null ? r.pct + '%' : '';
     });
     // the satellites behind this one (or the tournament this satellite fed)

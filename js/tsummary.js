@@ -372,10 +372,40 @@
     return { lhs: lhs, result: result, tail: tail, text: lhs + ' = ' + tail + ' · ' + result };
   }
 
+  /* A chop: the players named agreed to split their combined prizes by the
+     percentages given, instead of taking what the payout table says.  The
+     official prizes are kept (r.official) and the rows carry what was
+     actually paid.  chop = { pct: { name: percent } }, percentages of the
+     combined official prizes of exactly those players. */
+  function applyChop(t, chop) {
+    if (!chop || !chop.pct) return t;
+    const names = Object.keys(chop.pct);
+    // one row each: a player's best-paying entry
+    const rowOf = {};
+    for (const r of t.results) {
+      if (r.official != null) { r.amount = r.official; }             // undo an earlier chop first
+      delete r.chop;
+      if (!names.includes(r.name)) continue;
+      if (!rowOf[r.name] || r.amount > rowOf[r.name].amount) rowOf[r.name] = r;
+    }
+    const pool = names.reduce((a, n) => a + (rowOf[n] ? rowOf[n].amount : 0), 0);
+    if (!(pool > 0)) return t;
+    for (const n of names) {
+      const r = rowOf[n];
+      if (!r) continue;
+      r.official = r.amount;
+      r.amount = Math.round(pool * chop.pct[n]) / 100;
+      r.chop = chop.pct[n];
+      if (t.pool) r.pct = Math.round(r.amount / t.pool * 100000) / 1000;
+    }
+    t.chop = { pct: chop.pct, pool: pool };
+    return t;
+  }
+
   const ord = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
 
   // bump when event records gain fields; the app rebuilds stored records from the summaries
   const PERF_VERSION = 3;   // 3: play-money summaries scored by the payout chart
 
-  global.PSTSum = { rtfToText, isSummary, parse, perfFrom, eventFor, aggregate, campaigns, describe, money, ord, num, PERF_VERSION };
+  global.PSTSum = { rtfToText, isSummary, parse, perfFrom, eventFor, aggregate, campaigns, describe, applyChop, money, ord, num, PERF_VERSION };
 })(typeof window !== 'undefined' ? window : globalThis);

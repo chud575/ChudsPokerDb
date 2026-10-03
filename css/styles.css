@@ -728,3 +728,13 @@ body.twocolor .cd.su-c{color:#e6ebf2}
 .evBar i.dn{background:#c95454}
 .evList tr.never td{color:var(--dim2)}
 #shSort{background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:3px 6px;color:var(--fg);font:inherit;font-size:12px}
+
+/* ---------- chop ---------- */
+.chopBox{width:min(680px,94vw);max-height:88vh;overflow:auto}
+.chopTbl td{vertical-align:middle;white-space:nowrap}
+.chopTbl input[type=number]{width:74px;background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:3px 6px;color:var(--fg);font:inherit}
+.chopTbl input:disabled{opacity:.4}
+.chopTbl tr.me td{background:#2a2410}
+.chopSum{margin:8px 2px;font-size:12px}
+.chopTag{margin-left:8px;font-size:10.5px;color:#ffd27a}
+.toRes tr.chopped td:nth-child(5){color:#ffd27a}

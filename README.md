@@ -597,6 +597,16 @@ How the numbers are counted:
   players' knockout winnings are not in their records.
 * A villain's record covers only the tournaments you were in.
 
+### Chops
+
+**Chop** on a tournament's page records a deal. Tick everyone who was in it and give each one's share
+of their combined listed prizes — fill in yours and the rest is split evenly among the others until
+you change them; the shares must total 100%. The standings then show what was actually paid (with the
+listed prize beside it), and every number that uses prizes — your net, ROI, the satellite groups, each
+of those players' records — uses the paid amount. **Edit chop** changes it and **Remove chop** puts the
+listed prizes back. Chops are kept with the library and included in backups; the tournament's own text
+is never altered.
+
 ### Play-money tournaments
 
 Play chips mean nothing, so nothing PokerStars paid in them is used — not the buy-in, not the prize

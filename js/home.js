@@ -57,6 +57,20 @@
     // derived fresh each time, never stored — the hands are the authority
     const play = await playTourneys();
     const pp = PSTSum.perfFrom(play);
+    // chops: what was really paid replaces the official prize for the players in the deal
+    const chops = await getChops();
+    for (const tid in chops) {
+      const t = play.find(x => x.id === tid) || await PSDB.getSummary(tid);
+      if (!t) continue;
+      PSTSum.applyChop(t, chops[tid]);
+      for (const n in chops[tid].pct) {
+        const src = pp[n] && pp[n].events[tid] ? pp : perfDb;
+        const ev = src[n] && src[n].events[tid];
+        if (!ev) continue;
+        const won = t.results.filter(r => r.name === n).reduce((a, r) => a + r.amount, 0);
+        src[n] = Object.assign({}, src[n], { events: Object.assign({}, src[n].events, { [tid]: Object.assign({}, ev, { won: won, chop: chops[tid].pct[n] }) }) });
+      }
+    }
     for (const n in pp) {
       if (perfDb[n]) perfDb[n] = Object.assign({}, perfDb[n], { events: Object.assign({}, pp[n].events, perfDb[n].events) });
       else perfDb[n] = pp[n];
@@ -146,6 +160,7 @@
     const sums = (await PSDB.allSummaries()).map(t => ({ id: t.id, by: (t.hero && t.hero.name) || '', raw: t.raw }));
     const accts = (await PSDB.getMeta('summaryAccounts')) || [];
     const pmEntries = (await PSDB.getMeta('pmEntries')) || {};
+    const chops = await getChops();
     const taught = PSLesson.taughtHands();
     const ann = taught.length ? (await PSLesson.exportLesson(taught)).hands : {};
     let plans = null, built = null;
@@ -153,7 +168,7 @@
     try { built = JSON.parse(localStorage.getItem('psreplayer.built.v1')); } catch (e) { }
     const out = {
       app: 'PokerStars Hand Replayer library backup', v: 1, saved: new Date().toISOString(), from: where(),
-      hands: recs, summaries: sums, accounts: accts, pmEntries: pmEntries, annotations: ann, stars: PSLesson.starredIds(), plans: plans, built: built,
+      hands: recs, summaries: sums, accounts: accts, pmEntries: pmEntries, chops: chops, annotations: ann, stars: PSLesson.starredIds(), plans: plans, built: built,
     };
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([JSON.stringify(out)], { type: 'application/json' }));
@@ -185,6 +200,7 @@
         await rememberAccounts(b.accounts || []);
       }
       if (b.pmEntries) await PSDB.setMeta('pmEntries', Object.assign((await PSDB.getMeta('pmEntries')) || {}, b.pmEntries));
+      if (b.chops) await PSDB.setMeta('chops', Object.assign(await getChops(), b.chops));
       if (b.annotations && Object.keys(b.annotations).length) await PSLesson.importLesson({ hands: b.annotations });
       (b.stars || []).forEach(id => PSLesson.star(id, true));
       if (b.plans && b.plans.plans) {
@@ -310,6 +326,15 @@
     const over = (await PSDB.getMeta('pmEntries')) || {};
     return PSPlay.synthAll(await PSDB.allTourneys(), over, have);
   }
+  /* chops, by tournament: { tid: { pct: { player: percent } } } */
+  const getChops = async () => (libOk ? (await PSDB.getMeta('chops')) : null) || {};
+  async function setChop(tid, chop) {
+    const all = await getChops();
+    if (chop) all[tid] = chop; else delete all[tid];
+    await PSDB.setMeta('chops', all);
+    perfDb = null;
+  }
+
   async function setPlayEntries(id, n) {
     const over = (await PSDB.getMeta('pmEntries')) || {};
     if (n) over[id] = n; else delete over[id];
@@ -653,7 +678,7 @@
 
   global.PSHome = {
     init, show, offerImport, reportLoad, openPlayer, dropCache, toast, refreshCurrent, importSummaries, ensurePerf, openTourney,
-    perfCache: () => perfDb, library: () => ensureLibrary(), playTourneys, setPlayEntries,
+    perfCache: () => perfDb, library: () => ensureLibrary(), playTourneys, setPlayEntries, getChops, setChop,
     get hero() { return hero; }, get accounts() { return accounts; }, get libOk() { return libOk; },
   };
 })(window);
