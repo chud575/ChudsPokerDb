@@ -100,6 +100,7 @@
     $('#loadStat').textContent = HANDS.length.toLocaleString() + ' hands · ' + Object.keys(files).length + ' file(s)';
     applyFilters();
     try { if (VIEW.length) open(VIEW[0]); } catch (err) { showError('opening first hand: ' + err.message); }
+    if (global.PSHome && PSHome.fillLoader) PSHome.fillLoader();     // the tournament pull-down follows what is loaded
   }
 
   function fillSelect(sel, allLabel, pairs) {
@@ -962,6 +963,8 @@
     replaceHands: replaceHands,
     redraw: () => { if (cur >= 0) render(); },
     lastLoaded: () => lastLoaded,
+    // what is in the replayer right now: how many hands, from which tournaments
+    loaded: () => ({ n: HANDS.length, tourneys: [...new Set(HANDS.map(h => h.tourney || ''))] }),
   };
 
   /* demo hint when nothing loaded */

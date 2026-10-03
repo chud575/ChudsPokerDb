@@ -210,6 +210,19 @@
   async function render() {
     if (!PSHome.libOk) { $('#toList').innerHTML = '<div class="empty warn">The library is unavailable here.</div>'; return; }
     await load();
+    // asked to open a tournament another of your accounts played (it was requested
+    // before the list had loaded): switch to that account rather than drop the request
+    if (current && !list.some(t => t.id === current)) {
+      const t0 = all.find(x => x.id === current);
+      const other = t0 && Object.keys(acctCounts).find(n => plays(t0, n));
+      if (other) {
+        acct = other;
+        try { localStorage.setItem(ACCT_KEY, other); } catch (e) { }
+        list = all.filter(t => plays(t, acct));
+        multSet = null;
+        $('#toAcct').value = acct;
+      }
+    }
     renderList();
     if (current && list.some(t => t.id === current)) open(current); else overview();
   }
@@ -785,11 +798,12 @@
     const tg = el('button', 'btn', rawMode ? 'Table view' : 'Plain text');
     tg.onclick = () => { rawMode = !rawMode; open(id); };
     bar.appendChild(tg);
-    if (handTids.has(t.id)) {
-      const hb = el('button', 'btn primary', 'Open the hands');
-      hb.onclick = () => PSHome.openTourney(t.id);
-      bar.appendChild(hb);
-    }
+    // into the replayer — always offered, so it is clear when the hands are simply not imported
+    const hb = el('button', 'btn' + (handTids.has(t.id) ? ' primary' : ''), handTids.has(t.id) ? '▶ Replay the hands' : '▶ Replay — no hands imported');
+    hb.title = handTids.has(t.id) ? 'Load this tournament’s hands into the replayer' : 'Import this tournament’s hand histories (Library → Import files) to replay it';
+    if (!handTids.has(t.id)) hb.classList.add('off');
+    hb.onclick = () => PSHome.openTourney(t.id);
+    bar.appendChild(hb);
     const chb = el('button', 'btn' + (t.chop ? ' primary' : ''), t.chop ? 'Edit chop' : 'Chop');
     chb.title = 'Record a deal: who split the prizes, and what percentage each took';
     chb.onclick = () => chopDialog(t);

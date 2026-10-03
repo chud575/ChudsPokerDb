@@ -738,3 +738,8 @@ body.twocolor .cd.su-c{color:#e6ebf2}
 .chopSum{margin:8px 2px;font-size:12px}
 .chopTag{margin-left:8px;font-size:10.5px;color:#ffd27a}
 .toRes tr.chopped td:nth-child(5){color:#ffd27a}
+
+/* ---------- replayer: load a tournament, jump to its results ---------- */
+.loadRow select{font-weight:600}
+.loadRow .btn{flex:none;padding:3px 9px;font-size:11.5px;white-space:nowrap}
+.toBar .btn.off{opacity:.55}

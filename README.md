@@ -32,6 +32,16 @@ A browser will not open that database for a page loaded straight off disk. The L
 so plainly if that happens, and the fix is to serve the folder over http (below) — the replayer
 itself still works either way.
 
+## Between the replayer and a tournament
+
+* **In the replayer**, the pull-down above the hand list loads any tournament in the library — date,
+  event, hands, your finish — or the whole library. It always shows what is loaded now (after opening a
+  single hand from another screen it reads "Loaded now: 1 hand of #…", and the whole library is one
+  choice away). **Results ▸** beside it opens the current hand's tournament in the Tournament Overview.
+* **On a tournament's page**, **▶ Replay the hands** loads that tournament into the replayer. When its
+  hand histories are not in the library the button says so and tells you what to import.
+* The Library screen's **open** and **results** buttons do the same from the list of tournaments.
+
 ## Player statistics
 
 Every player in the library gets a column per game plus a combined column, because Omaha numbers

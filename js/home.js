@@ -26,7 +26,7 @@
     if (v === 'players') refreshPlayers();
     if (v === 'me') openMe();
     if (v === 'home') refreshHome();
-    if (v === 'replayer') setTimeout(() => PSApp.redraw(), 20);
+    if (v === 'replayer') { setTimeout(() => PSApp.redraw(), 20); fillLoader(); }
     if (v === 'lessons' && global.PSPlans) PSPlans.render();
     if (v === 'tourneys' && global.PSTourneys) PSTourneys.render();
     if (v === 'starts' && global.PSStart) PSStart.render();
@@ -233,9 +233,57 @@
   async function openTourney(id) {
     const recs = [];
     await PSDB.scan({ tourney: id }, r => { recs.push(r); });
-    if (!recs.length) return;
+    if (!recs.length) { toast('No hands for tournament #' + id + ' in the library — import its hand histories to replay it.', 'info'); return false; }
     PSApp.replaceHands(recs.map(r => r.raw).join('\n\n'), 'tournament ' + id);
     show('replayer');
+    return true;
+  }
+  async function openLibrary() {
+    const lib = await ensureLibrary();
+    if (!lib.recs.length) return;
+    PSApp.replaceHands(lib.recs.map(r => r.raw).join('\n\n'), 'library');
+    show('replayer');
+  }
+
+  /* ---------- the replayer's own way in and out of a tournament ----------
+     A pull-down above the hand list loads any tournament in the library (or the
+     whole library) into the replayer, and "Results" goes to the tournament the
+     current hand belongs to in the Tournament Overview. */
+  async function fillLoader() {
+    const sel = $('#fTourney');
+    if (!sel || !libOk) { if (sel) sel.style.display = 'none'; return; }
+    const ts = (await PSDB.allTourneys()).sort((a, b) => b.last - a.last);
+    const total = await PSDB.count();
+    const names = {};
+    try { (await PSDB.allSummaries()).forEach(s => { names[s.id] = s; }); } catch (e) { }
+    const now = PSApp.loaded();
+    sel.innerHTML = '';
+    // what is loaded: the whole library, one tournament, or something else (one hand, a lesson, a file)
+    const one = now.tourneys.length === 1 && now.tourneys[0] ? ts.find(t => t.id === now.tourneys[0]) : null;
+    const scope = total && now.n === total ? 'library' : one && now.n === one.hands ? one.id : '';
+    if (!scope) sel.appendChild(new Option('Loaded now: ' + now.n.toLocaleString() + ' hand' + (now.n === 1 ? '' : 's') + (one ? ' of #' + one.id : ''), ''));
+    sel.appendChild(new Option('Whole library — ' + total.toLocaleString() + ' hands', 'library'));
+    const og = document.createElement('optgroup');
+    og.label = 'Tournaments — ' + ts.length;
+    ts.forEach(t => {
+      const comps = Object.keys(t.games || {}).sort((a, b) => t.games[b] - t.games[a]);
+      const s = names[t.id];
+      const name = (s && s.event) || t.mixed || comps[0] || 'Tournament';
+      const fin = t.finishes && t.finishes[t.hero] && t.finishes[t.hero].place;
+      og.appendChild(new Option((t.last ? new Date(t.last).toLocaleDateString() + ' · ' : '') + name + ' · ' + t.hands + ' hands' +
+        (fin ? ' · ' + PSTSum.ord(fin) : '') + ' · #' + t.id, t.id));
+    });
+    sel.appendChild(og);
+    sel.value = scope;
+    sel.style.display = '';
+  }
+  async function resultsForCurrent() {
+    const h = PSApp.hand();
+    if (!h || !h.tourney) { toast('This hand is not from a tournament.', 'info'); return; }
+    const have = (await PSDB.getSummary(h.tourney)) || (await playTourneys()).some(t => t.id === h.tourney);
+    if (!have) { toast('No results for tournament #' + h.tourney + ' yet — import its PokerStars Tournament History to see the standings.', 'info'); return; }
+    show('tourneys');
+    PSTourneys.open(h.tourney);
   }
 
   /* ---------- import ---------- */
@@ -655,6 +703,8 @@
     $('#plSearch').oninput = () => refreshPlayers();
     $('#plGame').onchange = () => refreshPlayers();
     $('#plSort').onchange = () => refreshPlayers();
+    $('#fTourney').onchange = e => { const v = e.target.value; if (v === 'library') openLibrary(); else if (v) openTourney(v); };
+    $('#tourBtn').onclick = resultsForCurrent;
     $('#libBackup').onclick = backup;
     $('#libRestore').onchange = e => { restore(e.target.files[0]); e.target.value = ''; };
     $('#libClear').onclick = async () => {
@@ -678,7 +728,7 @@
 
   global.PSHome = {
     init, show, offerImport, reportLoad, openPlayer, dropCache, toast, refreshCurrent, importSummaries, ensurePerf, openTourney,
-    perfCache: () => perfDb, library: () => ensureLibrary(), playTourneys, setPlayEntries, getChops, setChop,
+    perfCache: () => perfDb, library: () => ensureLibrary(), playTourneys, setPlayEntries, getChops, setChop, openLibrary, fillLoader,
     get hero() { return hero; }, get accounts() { return accounts; }, get libOk() { return libOk; },
   };
 })(window);
