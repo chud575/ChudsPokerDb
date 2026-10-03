@@ -236,9 +236,15 @@
       if (!row || !row.dealt) continue;
       const unit = h.bb || h.sb || 1;
       const bb = row.net / unit;
-      const g = out[h.game.key] || (out[h.game.key] = { label: h.game.label, exact: {}, group: {}, all: blank(), groupOf: {} });
+      const g = out[h.game.key] || (out[h.game.key] = { label: h.game.label, exact: {}, group: {}, tkey: {}, all: blank(), groupOf: {}, sizes: {} });
       g.groupOf[c.exact] = c.group;
-      for (const s of [g.exact[c.exact] || (g.exact[c.exact] = blank()), g.group[c.group] || (g.group[c.group] = blank()), g.all]) {
+      // the name the HORSE+ EV table uses for these cards, and how many were dealt in
+      const tk = global.PSEV ? PSEV.tableKey(h.game.key, c.cards) : null;
+      const n = h.seats.filter(z => z.inHand).length;
+      g.sizes[n] = (g.sizes[n] || 0) + 1;
+      const into = [g.exact[c.exact] || (g.exact[c.exact] = blank()), g.group[c.group] || (g.group[c.group] = blank()), g.all];
+      if (tk) into.push(g.tkey[tk] || (g.tkey[tk] = blank()));
+      for (const s of into) {
         s.dealt++;
         if (row.vpip) { s.played++; s.bbPlayed += bb; if (row.net > 0) s.wonPlayed++; }
         if (row.net > 0) s.won++;
@@ -246,7 +252,7 @@
         s.bb += bb;
         if (bb > s.best) s.best = bb;
         if (bb < s.worst) s.worst = bb;
-        s.hands.push({ h: h, bb: bb, played: !!row.vpip, sd: !!row.showdown, folded: row.folds > 0, cards: c.cards, exact: c.exact });
+        s.hands.push({ h: h, bb: bb, played: !!row.vpip, sd: !!row.showdown, folded: row.folds > 0, cards: c.cards, exact: c.exact, tkey: tk, n: n });
       }
     }
     return out;
@@ -288,7 +294,20 @@
   }
 
   /* ---------- the screen ---------- */
-  let data = null, hero = '', game = '', mode = 'group', picked = '';
+  let data = null, hero = '', game = '', mode = 'group', picked = '', evN = 0, evSort = 'eq';
+
+  /* what the EV table says about a set of deals: average equity at the table size
+     each was dealt at, against the fair share (1 ÷ players) at that size */
+  function evOf(st) {
+    let e = 0, f = 0, n = 0;
+    for (const x of st.hands) {
+      const v = PSEV.eq(game, x.tkey, x.n);
+      if (v == null) continue;
+      e += v; f += 1 / PSEV.clampN(game, x.n); n++;
+    }
+    return n ? { eq: e / n, fair: f / n, n: n } : null;
+  }
+  const evReady = () => global.PSEV && PSEV.table(game);
   const KEY = 'psreplayer.starthands';
 
   async function render() {
@@ -299,7 +318,7 @@
     const heroes = {};
     lib.hands.forEach(h => { if (h.hero) heroes[h.hero] = (heroes[h.hero] || 0) + 1; });
     const names = Object.keys(heroes).sort((a, b) => heroes[b] - heroes[a]);
-    try { const st = JSON.parse(localStorage.getItem(KEY)) || {}; hero = hero || st.hero || ''; game = game || st.game || ''; mode = st.mode || mode; } catch (e) { }
+    try { const st = JSON.parse(localStorage.getItem(KEY)) || {}; hero = hero || st.hero || ''; game = game || st.game || ''; mode = st.mode || mode; evSort = st.evSort || evSort; } catch (e) { }
     if (!names.includes(hero)) hero = names[0] || '';
     const hs = $('#shHero');
     hs.innerHTML = '';
@@ -314,10 +333,11 @@
     keys.forEach(k => gs.appendChild(new Option(data[k].label + ' — ' + data[k].all.dealt.toLocaleString() + ' hands', k)));
     gs.value = game;
     $('#shMode').value = mode;
+    $('#shSort').value = evSort;
     draw();
   }
 
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ hero, game, mode })); } catch (e) { } };
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ hero, game, mode, evSort })); } catch (e) { } };
   // limit games are measured in big bets, no-limit and pot-limit in big blinds
   function unitOf() {
     const hs = (data[game] && data[game].all.hands) || [];
@@ -330,6 +350,21 @@
     body.innerHTML = '';
     const g = data && data[game];
     if (!g) { body.appendChild(el('div', 'empty', 'No starting hands for ' + hero + ' in this game.')); $('#shDetail').innerHTML = ''; return; }
+    // the HORSE+ EV table for this game, loaded the first time it is needed
+    if (global.PSEV && PSEV.has(game) && !PSEV.table(game)) { PSEV.load(game).then(t => { if (t) draw(); }); }
+    const evNow = evReady();
+    const pl = $('#shPlayers');
+    pl.style.display = (mode === 'grid' || mode === 'list') ? '' : 'none';
+    $('#shSortL').style.display = pl.style.display;
+    if (evNow) {
+      const cs = PSEV.counts(game);
+      const usual = +Object.keys(g.sizes).sort((a, b) => g.sizes[b] - g.sizes[a])[0] || cs[0];
+      if (!cs.includes(evN)) evN = PSEV.clampN(game, usual);
+      pl.innerHTML = '';
+      cs.forEach(n => pl.appendChild(new Option(n + ' players' + (n === PSEV.clampN(game, usual) ? ' (your usual)' : ''), n)));
+      pl.value = evN;
+    }
+    if (mode === 'grid' || mode === 'list') { evView(body, g, evNow); return; }
     const unit = unitOf(), u = unit === 'big blinds' ? 'BB' : 'BB';
     const min = Math.max(1, +$('#shMin').value || 1);
     const q = ($('#shFind').value || '').trim().toLowerCase();
@@ -349,25 +384,32 @@
     kpi(mode === 'group' ? 'kinds of hand' : 'different hands', String(Object.keys(src).length));
     body.appendChild(k);
     body.appendChild(el('div', 'dim trNote', 'Net is in ' + unit + ' at the level each hand was played, so early and late levels add up fairly. ' +
-      '“Played” means you put money in by choice on the first round (a call or a raise) — blinds, antes and bring-ins alone do not count. Click a row for the write-up and the hands.'));
+      '“Played” means you put money in by choice on the first round (a call or a raise) — blinds, antes and bring-ins alone do not count. Click a row for the write-up and the hands.' +
+      (evNow ? ' “Table equity” is the HORSE+ EV table: the share of the pot these cards win all-in to the end against random hands, at the number of players each was dealt with; “vs fair share” compares it with 1 ÷ players.' : '')));
 
     const t = el('table', 'tbl stats shTbl');
     const hr = t.insertRow();
     const cols = [mode === 'group' ? 'Kind of hand' : 'Hand'];
     if (mode === 'exact') cols.push('Kind');
-    cols.push('Dealt', 'Played', 'Played %', 'Won', 'Win % (played)', 'Showdowns', 'Won at SD', 'Net ' + u, u + ' / deal', u + ' / played', 'Verdict');
+    cols.push('Dealt');
+    if (evNow) cols.push('Table equity', 'vs fair share');
+    cols.push('Played', 'Played %', 'Won', 'Win % (played)', 'Showdowns', 'Won at SD', 'Net ' + u, u + ' / deal', u + ' / played', 'Verdict');
     cols.forEach(h => { const th = document.createElement('th'); th.textContent = h; hr.appendChild(th); });
     names.sort((x, y) => src[y].dealt - src[x].dealt || x.localeCompare(y)).forEach(n => {
       const s = src[n], v = verdict(s), r = t.insertRow();
       const cells = [n];
       if (mode === 'exact') cells.push(g.groupOf[n] || '');
-      cells.push(s.dealt, s.played, pct(s.played, s.dealt), s.wonPlayed, pct(s.wonPlayed, s.played), s.sd, pct(s.sdWon, s.sd),
+      cells.push(s.dealt);
+      const ev = evNow ? evOf(s) : null;
+      if (evNow) cells.push(ev ? (100 * ev.eq).toFixed(1) + '%' : '—', ev ? sgn(100 * (ev.eq - ev.fair)) + ' pts' : '—');
+      cells.push(s.played, pct(s.played, s.dealt), s.wonPlayed, pct(s.wonPlayed, s.played), s.sd, pct(s.sdWon, s.sd),
         sgn(s.bb), sgn(s.bb / s.dealt), s.played ? sgn(s.bbPlayed / s.played) : '—', v[0]);
       cells.forEach((x, i) => {
         const c = r.insertCell(); c.textContent = x;
         const name = cols[i];
         if (name === 'Net ' + u) c.className = s.bb > 0 ? 'up' : s.bb < 0 ? 'dn' : '';
         if (name === 'Verdict') c.className = v[1];
+        if (name === 'vs fair share' && ev) c.className = ev.eq > ev.fair ? 'up' : 'dn';
       });
       r.cells[0].className = 'pl';
       r.dataset.name = n;
@@ -381,8 +423,90 @@
     if (picked && src[picked]) detail(picked, src[picked], unit); else { picked = ''; $('#shDetail').innerHTML = '<div class="empty">Click a hand for its write-up and every time you held it.</div>'; }
   }
 
+  /* ---------- the HORSE+ EV table, with your results laid over it ---------- */
+  function evView(body, g, evNow) {
+    if (!global.PSEV || !PSEV.has(game)) { body.appendChild(el('div', 'empty', 'HORSE+ has no EV table for ' + g.label + ' — the tables cover Razz, Stud, Stud Hi/Lo, Omaha Hi/Lo and Hold’em.')); $('#shDetail').innerHTML = ''; return; }
+    if (!evNow) { body.appendChild(el('div', 'empty', 'loading the ' + g.label + ' EV table…')); return; }
+    const T = PSEV.table(game), row = T.players[String(evN)], fair = 1 / evN;
+    const unit = unitOf();
+    const q = ($('#shFind').value || '').trim().toLowerCase();
+    let keys = Object.keys(row).filter(k => !q || PSEV.pretty(game, k).toLowerCase().includes(q) || k.toLowerCase().includes(q));
+    const st = k => g.tkey[k];
+    const by = {
+      eq: (a, b) => row[b] - row[a],
+      dealt: (a, b) => ((st(b) || {}).dealt || 0) - ((st(a) || {}).dealt || 0) || row[b] - row[a],
+      net: (a, b) => ((st(b) || {}).bb || 0) - ((st(a) || {}).bb || 0) || row[b] - row[a],
+      per: (a, b) => { const x = st(a), y = st(b); return (y && y.dealt >= 3 ? y.bb / y.dealt : -1e9) - (x && x.dealt >= 3 ? x.bb / x.dealt : -1e9) || row[b] - row[a]; },
+    }[evSort] || ((a, b) => row[b] - row[a]);
+    keys.sort(by);
+    const rankOf = {};
+    Object.keys(row).sort((a, b) => row[b] - row[a]).forEach((k, i) => { rankOf[k] = i + 1; });
+    const dealtKeys = Object.keys(g.tkey).filter(k => row[k] != null);
+    const yours = dealtKeys.reduce((a, k) => a + g.tkey[k].dealt, 0);
+
+    const head = el('div', 'evHead');
+    head.appendChild(el('span', null, Object.keys(row).length.toLocaleString() + ' hands'));
+    head.appendChild(el('span', null, 'fair share ' + (100 * fair).toFixed(1) + '%'));
+    head.appendChild(el('span', null, 'you were dealt ' + dealtKeys.length + ' of them, ' + yours + ' times'));
+    head.appendChild(el('span', 'dim', 'HORSE+ EV table · ' + T.note));
+    body.appendChild(head);
+    body.appendChild(el('div', 'dim trNote', 'Colour = the table’s equity against the fair share at ' + evN + ' players (greener above, redder below). Your results sit on top: times dealt and net ' + unit +
+      ' across every table size, with a bar on the left — green if the hand has made you money, red if it has cost you, none if you have held it under 3 times. Dimmed = never dealt to you.'));
+
+    const shown = keys.slice(0, 600);
+    if (mode === 'grid') {
+      const grid = el('div', 'evGrid');
+      shown.forEach(k => {
+        const e = row[k], s2 = st(k), t = el('div', 'evTile');
+        const d = Math.max(-1, Math.min(1, (e - fair) / (e >= fair ? 1 - fair : fair)));
+        t.style.setProperty('--h', d >= 0 ? 140 : 0);
+        t.style.setProperty('--a', (0.18 + 0.62 * Math.abs(d)).toFixed(2));
+        if (!s2) t.classList.add('never');
+        else if (s2.dealt >= 3) t.classList.add(s2.bb > 0 ? 'won' : s2.bb < 0 ? 'lost' : 'even');
+        t.appendChild(el('b', null, PSEV.pretty(game, k)));
+        t.appendChild(el('span', 'eq', (100 * e).toFixed(1) + '%'));
+        t.appendChild(el('span', 'you', s2 ? '×' + s2.dealt + ' · ' + sgn(s2.bb) : '—'));
+        t.title = '#' + rankOf[k] + ' of ' + Object.keys(row).length + (s2 ? ' · dealt ' + s2.dealt + ', played ' + s2.played + ', won ' + s2.wonPlayed + ', net ' + sgn(s2.bb) + ' ' + unit : ' · never dealt to you');
+        t.onclick = () => { picked = k; grid.querySelectorAll('.sel').forEach(x => x.classList.remove('sel')); t.classList.add('sel'); detail(PSEV.pretty(game, k), s2 || blank(), unit, k); };
+        if (k === picked) t.classList.add('sel');
+        grid.appendChild(t);
+      });
+      body.appendChild(grid);
+    } else {
+      const t = el('table', 'tbl stats shTbl evList');
+      const hr = t.insertRow();
+      ['#', 'Hand', 'Table equity', '', 'vs fair', 'Dealt to you', 'Played', 'Win % (played)', 'Net ' + 'BB', 'BB / deal', 'Verdict'].forEach(h => { const th = document.createElement('th'); th.textContent = h; hr.appendChild(th); });
+      shown.forEach(k => {
+        const e = row[k], s2 = st(k), r = t.insertRow();
+        r.insertCell().textContent = rankOf[k];
+        r.insertCell().textContent = PSEV.pretty(game, k);
+        r.insertCell().textContent = (100 * e).toFixed(1) + '%';
+        const bc = r.insertCell(), bar = el('div', 'evBar'), fill = el('i');
+        fill.style.width = (100 * Math.min(1, e / Math.max(...Object.values(row)))).toFixed(1) + '%';
+        fill.className = e >= fair ? 'up' : 'dn';
+        bar.appendChild(fill); bc.appendChild(bar);
+        const vf = r.insertCell(); vf.textContent = sgn(100 * (e - fair)) + ' pts'; vf.className = e >= fair ? 'up' : 'dn';
+        if (s2) {
+          const v = verdict(s2);
+          [s2.dealt, pct(s2.played, s2.dealt), pct(s2.wonPlayed, s2.played)].forEach(x => { r.insertCell().textContent = x; });
+          const nc = r.insertCell(); nc.textContent = sgn(s2.bb); nc.className = s2.bb > 0 ? 'up' : s2.bb < 0 ? 'dn' : '';
+          r.insertCell().textContent = sgn(s2.bb / s2.dealt);
+          const vc = r.insertCell(); vc.textContent = v[0]; vc.className = v[1];
+        } else { for (let i = 0; i < 6; i++) r.insertCell().textContent = i ? '' : '—'; r.classList.add('never'); }
+        r.cells[1].className = 'pl';
+        r.style.cursor = 'pointer';
+        if (k === picked) r.classList.add('me');
+        r.onclick = () => { picked = k; t.querySelectorAll('tr.me').forEach(x => x.classList.remove('me')); r.classList.add('me'); detail(PSEV.pretty(game, k), s2 || blank(), unit, k); };
+      });
+      body.appendChild(global.PSTourneys ? PSTourneys.sortable(t) : t);
+    }
+    if (keys.length > shown.length) body.appendChild(el('div', 'plMeta', 'showing ' + shown.length + ' of ' + keys.length.toLocaleString() + ' — use the find box to narrow it'));
+    if (picked && row[picked] != null) detail(PSEV.pretty(game, picked), st(picked) || blank(), unit, picked);
+    else $('#shDetail').innerHTML = '<div class="empty">Click a hand for its EV at every table size, your write-up, and every time you held it.</div>';
+  }
+
   const SUIT = { c: '♣', d: '♦', h: '♥', s: '♠' };
-  function detail(name, s, unit) {
+  function detail(name, s, unit, tkey) {
     const pane = $('#shDetail');
     pane.innerHTML = '';
     pane.scrollTop = 0;
@@ -391,8 +515,35 @@
     if (mode === 'exact' && g.groupOf[name]) pane.appendChild(el('div', 'dim trNote', g.groupOf[name] + ' · ' + g.label));
     else pane.appendChild(el('div', 'dim trNote', g.label));
     const ul = el('div', 'shNotes');
-    notesFor(name, s, unit).forEach((x, i) => ul.appendChild(el('p', i === 0 ? 'lead ' + verdict(s)[1] : null, x)));
+    (s.dealt ? notesFor(name, s, unit) : ['Never dealt to you in ' + g.label + '.'])
+      .forEach((x, i) => ul.appendChild(el('p', i === 0 ? 'lead ' + (s.dealt ? verdict(s)[1] : '') : null, x)));
     pane.appendChild(ul);
+    if (evReady()) {
+      const T = PSEV.table(game);
+      if (tkey) {
+        // this one hand at every table size the EV table covers
+        pane.appendChild(el('h4', 'sec', 'HORSE+ EV table'));
+        const w = el('div', 'shChips');
+        PSEV.counts(game).forEach(n => {
+          const e = PSEV.eq(game, tkey, n);
+          if (e == null) return;
+          w.appendChild(el('span', 'chip ' + (e >= 1 / n ? 'up' : 'dn'), n + 'p ' + (100 * e).toFixed(1) + '%'));
+        });
+        pane.appendChild(w);
+        pane.appendChild(el('div', 'dim trNote', 'Share of the pot all-in to the end against random hands, by number of players (fair share is 1 ÷ players). ' + T.note + '.'));
+      }
+      if (s.dealt) {
+        const ev = evOf(s);
+        if (ev) {
+          const won = s.dealt ? s.won / s.dealt : 0;
+          pane.appendChild(el('p', 'dim', 'Against the table: at the table sizes you were dealt it, these cards average ' + (100 * ev.eq).toFixed(1) + '% equity against a fair share of ' +
+            (100 * ev.fair).toFixed(1) + '% — ' + (ev.eq > ev.fair ? 'a hand worth playing on its cards' : 'below its share on raw cards') + '. You won ' + pct(s.won, s.dealt) +
+            ' of the deals (' + pct(s.wonPlayed, s.played) + ' of the ones you played) for ' + sgn(s.bb) + ' ' + unit + '.' +
+            (ev.eq > ev.fair && s.bb < 0 && s.dealt >= 8 ? ' Strong on paper but losing in practice — worth a look at how you play it.' : '') +
+            (ev.eq < ev.fair && s.bb > 0 && s.dealt >= 8 ? ' Below its share on paper but making you money — you are outplaying the cards.' : '')));
+        }
+      }
+    }
     if (mode === 'group') {
       // the exact hands inside this kind, most-dealt first
       const inside = {};
@@ -423,10 +574,12 @@
 
   function init() {
     $('#shHero').onchange = e => { hero = e.target.value; game = ''; picked = ''; save(); render(); };
-    $('#shGame').onchange = e => { game = e.target.value; picked = ''; save(); draw(); };
+    $('#shGame').onchange = e => { game = e.target.value; picked = ''; evN = 0; save(); draw(); };
     $('#shMode').onchange = e => { mode = e.target.value; picked = ''; save(); draw(); };
     $('#shMin').onchange = () => draw();
     $('#shFind').oninput = () => draw();
+    $('#shPlayers').onchange = e => { evN = +e.target.value; draw(); };
+    $('#shSort').onchange = e => { evSort = e.target.value; save(); draw(); };
   }
 
   global.PSStart = { init, render, classify, collect, notesFor, verdict, frequencies };

@@ -705,3 +705,26 @@ body.twocolor .cd.su-c{color:#e6ebf2}
 .lkWho{font-size:13px;font-weight:600;color:#ffd27a;margin:0 0 8px}
 .lkMin{width:54px;background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:3px 6px;color:var(--fg);font:inherit;font-size:12px}
 .lkAll{margin-top:10px}
+
+/* ---------- HORSE+ EV tables on the starting-hands screen ---------- */
+.evHead{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12px;color:var(--fg);margin:2px 0 4px;font-variant-numeric:tabular-nums}
+.evHead .dim{font-size:11px}
+.evGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;margin-top:6px}
+.evTile{position:relative;border-radius:10px;padding:9px 8px 8px 12px;cursor:pointer;display:flex;flex-direction:column;gap:2px;
+  background:hsla(var(--h),62%,38%,var(--a));border:1px solid hsla(var(--h),60%,50%,.35);overflow:hidden}
+.evTile:hover{outline:1px solid #ffffff55}
+.evTile.sel{outline:2px solid #ffe9a8}
+.evTile b{font-size:15px;letter-spacing:.3px;color:#fff}
+.evTile .eq{font-size:12px;color:#ffe9a8;font-variant-numeric:tabular-nums}
+.evTile .you{font-size:10.5px;color:#d7e3ef;font-variant-numeric:tabular-nums}
+.evTile::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:transparent}
+.evTile.won::before{background:#4fd08a}
+.evTile.lost::before{background:#ff6b6b}
+.evTile.never{opacity:.42}
+.evTile.never .you{color:#8996a6}
+.evBar{width:110px;height:9px;border-radius:4px;background:#1b2430;overflow:hidden}
+.evBar i{display:block;height:100%;border-radius:4px}
+.evBar i.up{background:#3fbf6f}
+.evBar i.dn{background:#c95454}
+.evList tr.never td{color:var(--dim2)}
+#shSort{background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:3px 6px;color:var(--fg);font:inherit;font-size:12px}

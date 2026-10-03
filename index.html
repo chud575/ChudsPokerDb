@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PokerStars Hand Replayer</title>
-<link rel="stylesheet" href="css/styles.css?v=20261003a">
+<link rel="stylesheet" href="css/styles.css?v=20261003d">
 </head>
 <body>
 
@@ -232,7 +232,16 @@
       <select id="shMode" title="Group similar hands, or list each one">
         <option value="group">By kind of hand</option>
         <option value="exact">Every hand</option>
+        <option value="grid">HORSE+ EV table — grid</option>
+        <option value="list">HORSE+ EV table — list</option>
       </select>
+      <select id="shPlayers" title="Number of players for the EV table"></select>
+      <label class="shMinL" id="shSortL">sort <select id="shSort">
+        <option value="eq">by equity</option>
+        <option value="dealt">by times dealt to you</option>
+        <option value="net">by your net</option>
+        <option value="per">by your BB per deal (3+ deals)</option>
+      </select></label>
       <label class="shMinL">dealt at least <input type="number" id="shMin" min="1" value="1"></label>
       <input type="search" id="shFind" placeholder="find a hand…">
     </div>
@@ -307,26 +316,27 @@
   </div>
 </div>
 
-<script src="js/db.js?v=20261003a"></script>
-<script src="js/parser.js?v=20261003a"></script>
-<script src="js/engine.js?v=20261003a"></script>
-<script src="js/equity.js?v=20261003a"></script>
-<script src="js/lesson.js?v=20261003a"></script>
-<script src="js/markup.js?v=20261003a"></script>
-<script src="js/teach.js?v=20261003a"></script>
-<script src="js/builder.js?v=20261003a"></script>
-<script src="js/buildui.js?v=20261003a"></script>
-<script src="js/tsummary.js?v=20261003a"></script>
-<script src="js/playmoney.js?v=20261003a"></script>
-<script src="js/stats.js?v=20261003a"></script>
-<script src="js/home.js?v=20261003a"></script>
-<script src="js/tourneys.js?v=20261003a"></script>
-<script src="js/starthands.js?v=20261003a"></script>
-<script src="js/luck.js?v=20261003a"></script>
-<script src="js/luckui.js?v=20261003a"></script>
-<script src="js/plans.js?v=20261003a"></script>
-<script src="js/solver.js?v=20261003a"></script>
-<script src="js/solverui.js?v=20261003a"></script>
-<script src="js/app.js?v=20261003a"></script>
+<script src="js/db.js?v=20261003d"></script>
+<script src="js/parser.js?v=20261003d"></script>
+<script src="js/engine.js?v=20261003d"></script>
+<script src="js/equity.js?v=20261003d"></script>
+<script src="js/lesson.js?v=20261003d"></script>
+<script src="js/markup.js?v=20261003d"></script>
+<script src="js/teach.js?v=20261003d"></script>
+<script src="js/builder.js?v=20261003d"></script>
+<script src="js/buildui.js?v=20261003d"></script>
+<script src="js/tsummary.js?v=20261003d"></script>
+<script src="js/playmoney.js?v=20261003d"></script>
+<script src="js/stats.js?v=20261003d"></script>
+<script src="js/home.js?v=20261003d"></script>
+<script src="js/tourneys.js?v=20261003d"></script>
+<script src="js/evtables.js?v=20261003d"></script>
+<script src="js/starthands.js?v=20261003d"></script>
+<script src="js/luck.js?v=20261003d"></script>
+<script src="js/luckui.js?v=20261003d"></script>
+<script src="js/plans.js?v=20261003d"></script>
+<script src="js/solver.js?v=20261003d"></script>
+<script src="js/solverui.js?v=20261003d"></script>
+<script src="js/app.js?v=20261003d"></script>
 </body>
 </html>
