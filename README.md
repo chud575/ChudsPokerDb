@@ -438,6 +438,13 @@ Measured on the showdowns where every remaining player's cards are in the histor
 For 2 and 3, luck = (share of the pot you ended with − equity before the card) × the pot before it. An
 all-in on the last street counts here — no cards were left to come.
 
+Luck is signed: a result that beats its equity is good luck, one that falls short is bad luck, and
+the headline is the net. Both sides are also shown on their own — **good luck** and **bad luck**, in BB
+and number of hands (the hands where the cards went your way include suckouts, all-ins won as the
+underdog, and favourites that held up for more than their equity), with the luckiest and unluckiest
+single hands, all-ins won as the underdog and lost as the favourite, and a list of every lucky and
+every unlucky hand.
+
 The screen shows the total luck in BB, your showdown result and what it would have been with the luck
 removed, a cumulative chart of the two (hover for a hand, click to open it), a table for each kind of
 hand (pots equity says you win vs pots you won), a by-game table, and the hands themselves — sucked

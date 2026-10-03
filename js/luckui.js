@@ -29,12 +29,17 @@
     out.push((mild ? 'Luck was close to neutral' : s.luck > 0 ? 'You ran good' : 'You ran bad') + ': across ' + plural(s.n, 'measured showdown', 'measured showdowns') +
       ' the cards gave you ' + sgn(s.luck) + ' BB compared with what your equity was worth. Your result in those hands was ' + sgn(s.net) +
       ' BB; with the luck taken out it would have been ' + sgn(adj) + ' BB.');
+    if (s.nGood || s.nBad) out.push('Both sides of that: the cards went your way in ' + plural(s.nGood, 'hand', 'hands') + ' for ' + sgn(s.good) + ' BB, and against you in ' +
+      plural(s.nBad, 'hand', 'hands') + ' for ' + sgn(s.bad) + ' BB.' + (s.bigGood ? ' Luckiest single hand ' + sgn(s.bigGood.luck) + ' BB (' + s.bigGood.label + ', ' +
+      (s.bigGood.kind === 'allin' ? 'all-in with ' : '') + pc(s.bigGood.eq) + ' equity, ' + outcome(s.bigGood) + ')' : '') +
+      (s.bigBad ? '; unluckiest ' + sgn(s.bigBad.luck) + ' BB (' + s.bigBad.label + ', ' + (s.bigBad.kind === 'allin' ? 'all-in with ' : '') + pc(s.bigBad.eq) + ' equity, ' + outcome(s.bigBad) + ').' : '.'));
     if (s.ai.n) {
       const a = s.ai;
       out.push('All-in before the last card ' + plural(a.n, 'time', 'times') + ': the money went in as the favourite ' + a.fav + ' of ' + a.n +
         ' (' + pc(a.fav / a.n) + '), average equity ' + pc(a.eq / a.n) + '. Equity says you win ' + a.exp.toFixed(1) + ' of those pots; you won ' + a.got.toFixed(1) +
         ' — ' + (Math.abs(a.got - a.exp) < 0.5 ? 'right on expectation' : (a.got > a.exp ? 'above' : 'below') + ' expectation by ' + Math.abs(a.got - a.exp).toFixed(1) + ' pots') +
-        ' (' + sgn(a.luck) + ' BB).');
+        ' (' + sgn(a.luck) + ' BB).' + ((a.dogBeat || a.favLost) ? ' You won ' + plural(a.dogBeat || 0, 'all-in', 'all-ins') + ' as the underdog (' + sgn(a.dogBeatLuck || 0) +
+        ' BB of luck) and lost ' + (a.favLost || 0) + ' as the favourite (' + sgn(a.favLostLuck || 0) + ' BB).' : ''));
     }
     if (s.rv.n) {
       const v = s.rv;
@@ -167,6 +172,8 @@
     const k = el('div', 'trKpis');
     const kpi = (label, v, c, tip) => { const d = el('div', 'kpi ' + (c || '')); d.appendChild(el('b', null, v)); d.appendChild(el('small', null, label)); if (tip) d.title = tip; k.appendChild(d); };
     kpi('luck, BB', sgn(s.luck), cls(s.luck), 'What you actually won minus what your equity was worth, over every measured showdown');
+    kpi('good luck · ' + s.nGood + ' hands', sgn(s.good), s.good ? 'up' : '', 'Every hand where the result beat the equity — suckouts, all-ins won as the underdog, and favourites that held up');
+    kpi('bad luck · ' + s.nBad + ' hands', sgn(s.bad), s.bad ? 'dn' : '', 'Every hand where the result fell short of the equity — bad beats, all-ins lost as the favourite, draws that missed');
     kpi('showdown result, BB', sgn(s.net), cls(s.net));
     kpi('with luck removed, BB', sgn(s.net - s.luck), cls(s.net - s.luck), 'Your showdown result if every pot had paid exactly its equity');
     kpi('all-ins before the last card', String(s.ai.n));
@@ -252,6 +259,7 @@
     const pick = el('div', 'lkPick');
     [['beat', 'Sucked out on (' + s.rv.beat + ')'], ['lucky', 'Your suckouts (' + s.rv.lucky + ')'], ['allin', 'All-ins (' + s.ai.n + ')'],
       ['coolA', 'Coolers against (' + X.coolA.length + ')'], ['coolF', 'Coolers for (' + X.coolF.length + ')'], ['life', 'Tournament-life all-ins (' + X.life.n + ')'],
+      ['good', 'Every time you got lucky (' + s.nGood + ')'], ['bad', 'Every time you got unlucky (' + s.nBad + ')'],
       ['all', 'Everything measured (' + s.n + ')']]
       .forEach(([m, label]) => {
         const b = el('button', 'btn' + (listMode === m ? ' primary' : ''), label);
@@ -260,8 +268,9 @@
       });
     body.appendChild(pick);
     let list = listMode === 'coolA' ? X.coolA : listMode === 'coolF' ? X.coolF : listMode === 'life' ? X.life.recs
+      : listMode === 'good' ? recs.filter(r => r.luck >= 0.05) : listMode === 'bad' ? recs.filter(r => r.luck <= -0.05)
       : recs.filter(r => listMode === 'all' || (listMode === 'allin' ? r.kind === 'allin' : r.cat === listMode));
-    list = list.slice().sort((a, b) => listMode === 'lucky' ? b.luck - a.luck : a.luck - b.luck);
+    list = list.slice().sort((a, b) => listMode === 'lucky' || listMode === 'good' || listMode === 'coolF' ? b.luck - a.luck : a.luck - b.luck);
     body.appendChild(handTable(list));
 
     const sk = data.skipped, notes = [];
@@ -290,11 +299,12 @@
       out.innerHTML = '';
       const rows = board.filter(r => r.n >= (+min.value || 1));
       const t = el('table', 'tbl stats');
-      head(t, ['Player', 'Measured', 'Luck BB', 'Showdown BB', 'Luck removed', 'All-ins', 'In as favourite', 'Ahead at last card', 'Sucked out on', 'Suckouts', 'Without showdown BB', 'Mistake cost BB', 'Mistake % of BB in']);
+      head(t, ['Player', 'Measured', 'Luck BB', 'Showdown BB', 'Luck removed', 'All-ins', 'In as favourite', 'Ahead at last card', 'Good luck BB', 'Bad luck BB', 'Sucked out on', 'Suckouts', 'Without showdown BB', 'Mistake cost BB', 'Mistake % of BB in']);
       rows.forEach(r => {
         const tr = t.insertRow();
         cells(tr, [r.name + (mineNames.includes(r.name) ? '  (you)' : ''), r.n, sgn(r.luck), sgn(r.net), sgn(r.net - r.luck), r.ai, r.ai ? pc(r.fav / r.ai) : '—',
-          r.rv ? pc(r.ahead / r.rv) : '—', r.beat, r.lucky, sgn(r.quiet), sgn(-r.mis), r.bbIn ? (100 * r.mis / r.bbIn).toFixed(1) + '%' : '—'], { 2: cls(r.luck), 3: cls(r.net), 4: cls(r.net - r.luck), 10: cls(r.quiet), 11: r.mis ? 'dn' : '' });
+          r.rv ? pc(r.ahead / r.rv) : '—', sgn(r.good), sgn(r.bad), r.beat, r.lucky, sgn(r.quiet), sgn(-r.mis), r.bbIn ? (100 * r.mis / r.bbIn).toFixed(1) + '%' : '—'],
+          { 2: cls(r.luck), 3: cls(r.net), 4: cls(r.net - r.luck), 8: 'up', 9: 'dn', 12: cls(r.quiet), 13: r.mis ? 'dn' : '' });
         tr.cells[0].className = 'pl';
         if (mineNames.includes(r.name)) tr.className = 'me';
         if (r.name === hero) tr.classList.add('me');
@@ -315,7 +325,7 @@
         const d = await PSLuck.forHands(libHands, names[i]);
         if (!d.recs.length) continue;
         const x = PSLuck.summarize(d.recs), dq = PSLuck.decisionSummary(d.recs);
-        res.push({ mis: dq.mis.callDraw.bb + dq.mis.betDraw.bb, bbIn: dq.all.bb, name: names[i], n: x.n, luck: x.luck, net: x.net, ai: x.ai.n, fav: x.ai.fav, rv: x.rv.n, ahead: x.rv.ahead, beat: x.rv.beat, lucky: x.rv.lucky, quiet: d.netQuiet });
+        res.push({ good: x.good, bad: x.bad, mis: dq.mis.callDraw.bb + dq.mis.betDraw.bb, bbIn: dq.all.bb, name: names[i], n: x.n, luck: x.luck, net: x.net, ai: x.ai.n, fav: x.ai.fav, rv: x.rv.n, ahead: x.rv.ahead, beat: x.rv.beat, lucky: x.rv.lucky, quiet: d.netQuiet });
       }
       board = res.sort((a, b) => b.n - a.n);
       go.disabled = false; go.textContent = 'Measure again';
@@ -627,6 +637,7 @@
     kpi('at showdown, BB', sgn(res.netShown), cls(res.netShown));
     if (s.n) {
       kpi('luck, BB', sgn(s.luck), cls(s.luck), 'What you won minus what your equity was worth, over the measured showdowns');
+      kpi('good · bad luck, BB', sgn(s.good) + ' · ' + sgn(s.bad), '', s.nGood + ' hands went your way, ' + s.nBad + ' went against you');
       if (s.ai.n) kpi('all-ins · as favourite', s.ai.n + ' · ' + s.ai.fav);
       kpi('sucked out on · your suckouts', s.rv.beat + ' · ' + s.rv.lucky);
     }

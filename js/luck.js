@@ -355,14 +355,19 @@
       ai: { n: 0, fav: 0, favWon: 0, dog: 0, dogWon: 0, eq: 0, exp: 0, got: 0, luck: 0 },
       rv: { n: 0, ahead: 0, behind: 0, beat: 0, lucky: 0, held: 0, missed: 0, eq: 0, exp: 0, got: 0, luck: 0, beatLuck: 0, luckyLuck: 0 },
       approx: 0, sd: 0,
+      // the two sides of the net: every hand where the result beat its equity, and every one where it fell short
+      good: 0, nGood: 0, bad: 0, nBad: 0, bigGood: null, bigBad: null,
     };
     let sq = 0;
     for (const r of recs) {
       s.luck += r.luck; s.net += r.net; sq += r.luck * r.luck;
+      if (r.luck >= 0.05) { s.good += r.luck; s.nGood++; if (!s.bigGood || r.luck > s.bigGood.luck) s.bigGood = r; }
+      else if (r.luck <= -0.05) { s.bad += r.luck; s.nBad++; if (!s.bigBad || r.luck < s.bigBad.luck) s.bigBad = r; }
       if (r.approx) s.approx++;
       if (r.kind === 'allin') {
         const a = s.ai; a.n++; a.eq += r.eq; a.exp += r.eq; a.got += r.share; a.luck += r.luck;
-        if (r.cat === 'fav') { a.fav++; a.favWon += r.share; } else { a.dog++; a.dogWon += r.share; }
+        if (r.cat === 'fav') { a.fav++; a.favWon += r.share; if (r.share < 0.5) { a.favLost = (a.favLost || 0) + 1; a.favLostLuck = (a.favLostLuck || 0) + r.luck; } }
+        else { a.dog++; a.dogWon += r.share; if (r.share > 0.5) { a.dogBeat = (a.dogBeat || 0) + 1; a.dogBeatLuck = (a.dogBeatLuck || 0) + r.luck; } }
       } else {
         const v = s.rv; v.n++; v.eq += r.eq; v.exp += r.eq; v.got += r.share; v.luck += r.luck;
         if (r.eq > 0.5) v.ahead++; else if (r.eq < 0.5) v.behind++;
