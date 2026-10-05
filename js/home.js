@@ -506,7 +506,8 @@
         const a = A(n);
         right = sort === 'roi' ? (a.roi == null ? '' : 'ROI ' + a.roi.toFixed(0) + '%') : PSTSum.money(a.net, a.cur);
       } else if (r) {
-        const vp = PSStats.pct(r.vpip, r.dealt);
+        // full-table VPIP when there is enough of it: short-handed hands would inflate it
+        const vp = r.dealtFull >= 10 ? PSStats.pct(r.vpipFull, r.dealtFull) : PSStats.pct(r.vpip, r.dealt);
         right = vp == null ? '' : 'VPIP ' + vp.toFixed(0) + '%';
       }
       row.appendChild(el('span', 'plV', right));

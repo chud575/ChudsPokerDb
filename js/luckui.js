@@ -623,7 +623,9 @@
     wait.remove();
     const mine = hs.filter(h => h.hero === who).sort((a, b) => (a.dateObj || 0) - (b.dateObj || 0));
     let vpip = 0, opp = 0, wonPots = 0;
-    mine.forEach(h => { const r = PSStats.rowsFor(h)[who]; if (!r) return; opp += r.vpipOpp ? 1 : 0; vpip += r.vpip; wonPots += r.won; });
+    let vF = 0, dF = 0, vS = 0, dS = 0;
+    mine.forEach(h => { const r = PSStats.rowsFor(h)[who]; if (!r) return; opp += r.vpipOpp ? 1 : 0; vpip += r.vpip; wonPots += r.won;
+      vF += r.vpipFull; dF += r.dealtFull; vS += r.vpipShort; dS += r.dealtShort; });
     const games = {};
     mine.forEach(h => { games[h.game.label] = (games[h.game.label] || 0) + 1; });
 
@@ -631,6 +633,10 @@
     const kpi = (label, v, c, tip) => { const d = el('div', 'kpi ' + (c || '')); d.appendChild(el('b', null, v)); d.appendChild(el('small', null, label)); if (tip) d.title = tip; k.appendChild(d); };
     kpi('hands', String(mine.length));
     kpi('played', opp ? pc(vpip / opp) : '—', '', 'Hands where you put money in by choice on the first round');
+    if (dF && dS) {
+      kpi('played, 5+ players · ' + dF + ' hands', pc(vF / dF), '', 'Full-table play only');
+      kpi('played, 4 or fewer · ' + dS + ' hands', pc(vS / dS), '', 'Short-handed play — the end of a tournament, where playing far more hands is right');
+    }
     kpi('pots won', String(wonPots));
     kpi('showdowns', res.showdowns + (s.n ? ' · won ' + (s.ai.got + s.rv.got).toFixed(1) : ''));
     kpi('without showdown, BB', sgn(res.netQuiet), cls(res.netQuiet));

@@ -14,10 +14,15 @@
 
   const FIRST = { stud: '3rd', flop: 'preflop', draw: 'predraw' };
 
+  const SHORT = 4;           // this many players dealt in, or fewer, counts as short-handed
+
   function newRow() {
     return {
       hands: 0, dealt: 0,
       vpip: 0, vpipOpp: 0,
+      // VPIP by table size: short-handed play (the end of a tournament, mostly) is
+      // a different game and would swamp the full-table number if left in
+      dealtFull: 0, vpipFull: 0, dealtShort: 0, vpipShort: 0,
       pfr: 0, pfrOpp: 0,
       open: 0, openOpp: 0,
       threeBet: 0, threeBetOpp: 0,
@@ -115,8 +120,10 @@
       }
     }
 
+    const short = dealt.length <= SHORT;
     for (const n of dealt) {
       const r = out[n];
+      if (short) { r.dealtShort = 1; r.vpipShort = r.vpip; } else { r.dealtFull = 1; r.vpipFull = r.vpip; }
       const inAtEnd = !folded.has(n);
       if (sawShowdown && inAtEnd) {
         r.showdown = 1;
@@ -175,6 +182,8 @@
     return [
       { k: 'hands',     label: 'Hands',            v: r.hands,                              raw: r.hands },
       { k: 'vpip',      label: 'VPIP',             v: fmtPct(pct(r.vpip, r.dealt)),          raw: pct(r.vpip, r.dealt),          d: r.dealt },
+      { k: 'vpipFull',  label: 'VPIP, 5+ players', v: fmtPct(pct(r.vpipFull, r.dealtFull)),  raw: pct(r.vpipFull, r.dealtFull),  d: r.dealtFull },
+      { k: 'vpipShort', label: 'VPIP, 4 or fewer', v: fmtPct(pct(r.vpipShort, r.dealtShort)),raw: pct(r.vpipShort, r.dealtShort),d: r.dealtShort },
       { k: 'pfr',       label: 'Raise first round',v: fmtPct(pct(r.pfr, r.dealt)),           raw: pct(r.pfr, r.dealt),           d: r.dealt },
       { k: 'open',      label: 'Open raise',       v: fmtPct(pct(r.open, r.openOpp)),        raw: pct(r.open, r.openOpp),        d: r.openOpp },
       { k: '3bet',      label: '3-bet',            v: fmtPct(pct(r.threeBet, r.threeBetOpp)),raw: pct(r.threeBet, r.threeBetOpp),d: r.threeBetOpp },
@@ -237,5 +246,5 @@
     };
   }
 
-  global.PSStats = { rowsFor, collect, summary, extras, tourneySummary, newRow, add, pct, fmtPct };
+  global.PSStats = { SHORT, rowsFor, collect, summary, extras, tourneySummary, newRow, add, pct, fmtPct };
 })(window);

@@ -377,6 +377,11 @@
     const kpi = (label, v, cls) => { const d = el('div', 'kpi ' + (cls || '')); d.appendChild(el('b', null, v)); d.appendChild(el('small', null, label)); k.appendChild(d); };
     kpi('hands dealt', a.dealt.toLocaleString());
     kpi('played', pct(a.played, a.dealt));
+    const fullH = a.hands.filter(x => x.n > 4), shortH = a.hands.filter(x => x.n <= 4);
+    if (fullH.length && shortH.length) {
+      kpi('played, 5+ players', pct(fullH.filter(x => x.played).length, fullH.length));
+      kpi('played, 4 or fewer', pct(shortH.filter(x => x.played).length, shortH.length));
+    }
     kpi('won when played', pct(a.wonPlayed, a.played));
     kpi('won at showdown', pct(a.sdWon, a.sd));
     kpi('net, ' + unit, sgn(a.bb), a.bb > 0 ? 'up' : a.bb < 0 ? 'dn' : '');

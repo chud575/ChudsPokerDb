@@ -54,6 +54,11 @@ without showdown, fold-after-entering, aggression frequency and factor, hands wo
 chips per hand — plus per-family extras: stands-pat rate and cards per draw for draw games,
 bring-ins and completions for stud.
 
+**VPIP is also split by table size** — "VPIP, 5+ players" and "VPIP, 4 or fewer" (players dealt into the
+hand) — because short-handed play at the end of a tournament is a different game and would inflate a
+single number. The player list shows the full-table figure once a player has ten such hands, and the
+Starting hands screen and each tournament's summary carry the same split.
+
 Tournament summaries sit above: how many played and of which games, how many finishes the files
 actually record, and how many of those carried a payout. Finishes the history never recorded are
 excluded from the denominator rather than counted as busts.
