@@ -5,6 +5,7 @@
   --accent:#5ea9ff; --good:#46d17f; --bad:#ff6b6b; --warn:#ffcc55;
   --felt1:#1d5f47; --felt2:#0f3b2c; --rail:#2a1d14;
   --cardw:46px; --cardh:64px;
+  --chrome:85px;        /* top bar (48) + tabs (37) — what the screens sit under */
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -14,6 +15,33 @@ body{
   overflow:hidden;
 }
 button,select,input{font:inherit;color:inherit}
+
+/* ---------- the eight screens, as tabs under the top bar ---------- */
+#tabs{
+  display:flex;gap:2px;align-items:stretch;padding:0 8px;height:37px;
+  background:#121820;border-bottom:1px solid var(--line);
+  overflow-x:auto;white-space:nowrap;scrollbar-width:none;
+}
+#tabs::-webkit-scrollbar{display:none}
+#tabs button{
+  background:none;border:0;border-bottom:2px solid transparent;border-radius:0;
+  color:var(--dim);font-size:12.5px;padding:0 11px;cursor:pointer;white-space:nowrap;
+}
+#tabs button:hover{color:var(--fg);background:#1a212b}
+body.presenting #tabs{display:none}
+body.blackbg #tabs{background:#000;border-bottom-color:#1e1e1e}
+
+/* the open screen, straight off the class show() puts on <body> */
+body.view-library  #tabs [data-go=library],
+body.view-replayer #tabs [data-go=replayer],
+body.view-players  #tabs [data-go=players],
+body.view-me       #tabs [data-go=me],
+body.view-tourneys #tabs [data-go=tourneys],
+body.view-starts   #tabs [data-go=starts],
+body.view-luck     #tabs [data-go=luck],
+body.view-lessons  #tabs [data-go=lessons]{
+  color:#fff;background:var(--bg2);border-bottom-color:var(--accent);font-weight:600;
+}
 
 /* ---------- top bar ---------- */
 #topbar{
@@ -38,7 +66,7 @@ button,select,input{font:inherit;color:inherit}
 .stat{color:var(--dim);font-variant-numeric:tabular-nums}
 
 /* ---------- layout ---------- */
-main{display:grid;grid-template-columns:272px minmax(420px,1fr) 316px;height:calc(100vh - 45px)}
+main{display:grid;grid-template-columns:272px minmax(420px,1fr) 316px;height:calc(100vh - var(--chrome))}
 @media (max-width:1280px){main{grid-template-columns:236px minmax(380px,1fr) 268px}}
 @media (max-width:1080px){main{grid-template-columns:236px minmax(340px,1fr)} #right{display:none}}
 @media (max-width:820px){main{grid-template-columns:1fr} #left{display:none}}
@@ -430,11 +458,11 @@ body.blackbg .hrow.sel{background:#15202c}
    ========================================================================= */
 .screen{display:none}
 body.view-replayer #viewReplayer{display:grid}
-body.view-home #viewHome{display:block}
-body.view-library #viewLibrary{display:flex;flex-direction:column;height:calc(100vh - 45px)}
-body.view-players #viewPlayers{display:grid;grid-template-columns:300px 1fr;height:calc(100vh - 45px)}
-body.view-me #viewMe{display:flex;flex-direction:column;height:calc(100vh - 45px)}
-body.view-lessons #viewLessons{display:flex;flex-direction:column;height:calc(100vh - 45px)}
+body.view-home #viewHome{display:block;height:calc(100vh - var(--chrome));overflow:auto}
+body.view-library #viewLibrary{display:flex;flex-direction:column;height:calc(100vh - var(--chrome))}
+body.view-players #viewPlayers{display:grid;grid-template-columns:300px 1fr;height:calc(100vh - var(--chrome))}
+body.view-me #viewMe{display:flex;flex-direction:column;height:calc(100vh - var(--chrome))}
+body.view-lessons #viewLessons{display:flex;flex-direction:column;height:calc(100vh - var(--chrome))}
 body:not(.view-replayer) #mkBar{display:none}
 
 .menuWrap{max-width:860px;margin:0 auto;padding:46px 22px}
@@ -543,7 +571,7 @@ body:not(.view-replayer) #replayerTools{display:none}
 .svCtx{font-size:10.5px;color:var(--dim2);margin-top:2px;font-variant-numeric:tabular-nums}
 
 /* ---------- tournament overview (PokerStars "Tournament History" summaries) ---------- */
-body.view-tourneys #viewTourneys{display:grid;grid-template-columns:320px 1fr;height:calc(100vh - 45px)}
+body.view-tourneys #viewTourneys{display:grid;grid-template-columns:320px 1fr;height:calc(100vh - var(--chrome))}
 #viewTourneys .screenHead .btn{padding:3px 9px;font-size:11px}
 .toRow{padding:6px 10px;border-bottom:1px solid #1b222c;cursor:pointer}
 .toRow:hover{background:#1b222c}
@@ -648,7 +676,7 @@ body.blackbg .fltBar{background:#0d0d0d;border-color:#242424}
 body.blackbg .tbl.stats tr.me td{background:#1d1808}
 
 /* ---------- starting hands ---------- */
-body.view-starts #viewStarts{display:grid;grid-template-columns:1fr 400px;height:calc(100vh - 45px)}
+body.view-starts #viewStarts{display:grid;grid-template-columns:1fr 400px;height:calc(100vh - var(--chrome))}
 .shMain{display:flex;flex-direction:column;min-width:0;min-height:0}
 .shHead{flex-wrap:wrap;row-gap:6px}
 .shHead select,.shHead input{background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:4px 7px;color:var(--fg);font:inherit;font-size:12px}
@@ -670,7 +698,7 @@ body.view-starts #viewStarts{display:grid;grid-template-columns:1fr 400px;height
 @media (max-width:1100px){body.view-starts #viewStarts{grid-template-columns:1fr 320px}}
 
 /* ---------- skill vs luck ---------- */
-body.view-luck #viewLuck{display:flex;flex-direction:column;height:calc(100vh - 45px)}
+body.view-luck #viewLuck{display:flex;flex-direction:column;height:calc(100vh - var(--chrome))}
 .lkIns{max-width:980px;margin:6px 0 4px}
 .lkCards .cd{font-weight:600;margin-right:3px;font-variant-numeric:tabular-nums}
 .lkHands td{white-space:nowrap}

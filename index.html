@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PokerStars Hand Replayer</title>
-<link rel="stylesheet" href="css/styles.css?v=20261009a">
+<link rel="stylesheet" href="css/styles.css?v=20261009b">
 </head>
 <body>
 
@@ -38,6 +38,17 @@
 
 <div id="errBar"></div>
 <div id="dropHint">Drop PokerStars hand-history .txt files here</div>
+
+<nav id="tabs">
+  <button data-go="library" title="Import a tournament once — it stays here">Library</button>
+  <button data-go="replayer" title="Step through, annotate, teach">Replay hands</button>
+  <button data-go="players" title="Stats on everyone, kept separate by game">Players</button>
+  <button data-go="me" title="The same breakdown, for you">Your numbers</button>
+  <button data-go="tourneys" title="Every tournament's final standings, and your record across them">Tournaments</button>
+  <button data-go="starts" title="Every hand you were dealt — how often you play it, win with it, and whether it pays">Starting hands</button>
+  <button data-go="luck" title="All-ins against their equity, suckouts for and against, and your result with the luck taken out">Skill vs luck</button>
+  <button data-go="lessons" title="Named groups of annotated hands, in teaching order">Lessons</button>
+</nav>
 
 <main id="viewReplayer" class="screen">
   <!-- ------------------------------------------------ hand list -->
