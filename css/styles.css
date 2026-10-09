@@ -727,6 +727,13 @@ body.twocolor .cd.su-c{color:#e6ebf2}
 .evBar i.up{background:#3fbf6f}
 .evBar i.dn{background:#c95454}
 .evList tr.never td{color:var(--dim2)}
+/* one tournament's starting hands, at the bottom of its page */
+.toStart{margin-top:22px;border-top:1px solid var(--line);padding-top:14px}
+.shTGame{margin-top:14px}
+.shTGame:first-child{margin-top:4px}
+.shTStrip:not(:empty){margin-top:12px}
+.shTHeld{font-size:13px;color:var(--fg);margin-bottom:4px}
+.shTGame .evHead .gm{font-weight:700;color:var(--accent)}
 #shSort{background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:3px 6px;color:var(--fg);font:inherit;font-size:12px}
 
 /* ---------- chop ---------- */

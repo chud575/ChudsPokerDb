@@ -909,6 +909,15 @@
       doc.appendChild(y);
     }
     pane.appendChild(doc);
+
+    // the starting hands this tournament actually dealt you, in the EV table's order
+    if (global.PSStart && PSStart.tourneyGrid && handTids.has(t.id)) {
+      const sh = el('div', 'toStart');
+      pane.appendChild(sh);
+      PSStart.tourneyGrid(sh, t.id, (t.hero && t.hero.name) || acct)
+        .then(ok => { if (!ok) sh.remove(); })
+        .catch(e => { console.warn('starting hands', e); sh.remove(); });
+    }
   }
 
   function init() {

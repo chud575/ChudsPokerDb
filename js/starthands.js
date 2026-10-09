@@ -577,6 +577,138 @@
     pane.appendChild(list);
   }
 
+  /* ---------- one tournament's starting hands, as the same grid ----------
+     Only the hands that actually came out in that tournament, laid out in the
+     EV table's own order, best first.  A hand you were never dealt there is
+     not shown at all — this is a record of the cards you got, not the whole
+     table of what exists. */
+
+  // limit games are measured in big bets, no-limit and pot-limit in big blinds
+  function unitFor(hands) {
+    const big = hands.filter(x => /NL|PL/.test(x.h.game.betting || '')).length;
+    return big * 2 > hands.length ? 'big blinds' : 'big bets';
+  }
+
+  /* every time you held one hand in this tournament, newest numbering first */
+  function heldList(strip, name, s, tid, idxOf, unit) {
+    strip.innerHTML = '';
+    strip.appendChild(el('div', 'shTHeld', name + ' — ' + s.dealt + ' deal' + (s.dealt === 1 ? '' : 's') +
+      ', ' + sgn(s.bb) + ' ' + unit + (s.played ? ' · played ' + s.played + ' of them' : ' · never played')));
+    const list = el('div', 'plHands');
+    s.hands.slice().sort((a, b) => (idxOf[a.h.id] || 0) - (idxOf[b.h.id] || 0)).forEach(x => {
+      const row = el('div', 'plHand');
+      const cards = el('span', 'g');
+      cards.appendChild(el('span', 'dim', '#' + (idxOf[x.h.id] || '?') + '  '));
+      x.cards.forEach(c => cards.appendChild(el('span', 'cd su-' + c[1], c[0] + SUIT[c[1]])));
+      cards.appendChild(el('span', 'dim', '  ' + x.n + ' players · ' +
+        (x.sd ? 'showdown' : x.played ? 'played' : x.folded ? 'folded' : 'free look (blind / bring-in)')));
+      row.appendChild(cards);
+      row.appendChild(el('span', 'd', x.h.levelRoman ? 'Level ' + x.h.levelRoman : ''));
+      row.appendChild(el('span', 'amt ' + (x.bb > 0 ? 'up' : x.bb < 0 ? 'dn' : 'flat'), sgn(x.bb)));
+      row.title = 'Replay this hand inside the tournament';
+      row.onclick = () => { if (global.PSReview) PSReview.openIn(tid, x.h.id); };
+      list.appendChild(row);
+    });
+    strip.appendChild(list);
+  }
+
+  /* one game's grid — a HORSE tournament gets one of these per game it dealt */
+  function gameGrid(holder, gk, g, tid, idxOf) {
+    const T = PSEV.table(gk);
+    if (!T) return false;
+    // One table size for the whole grid, so the order is the game's own order
+    // rather than a different one per hand: the size this tournament mostly
+    // played at.  (Tables break; the EV table only has whole sizes.)
+    const usual = +Object.keys(g.sizes).sort((a, b) => g.sizes[b] - g.sizes[a])[0] || 0;
+    const n = PSEV.clampN(gk, usual);
+    if (!n) return false;
+    const row = T.players[String(n)];
+    if (!row) return false;
+    const fair = 1 / n, eqOf = k => PSEV.eq(gk, k, n);
+    const keys = Object.keys(g.tkey).filter(k => eqOf(k) != null);
+    if (!keys.length) return false;
+    keys.sort((a, b) => eqOf(b) - eqOf(a) || PSEV.pretty(gk, a).localeCompare(PSEV.pretty(gk, b)));
+    // where each one sits in the full table, so "#12 of 455" still means something
+    const rankOf = {}, total = Object.keys(row).length;
+    Object.keys(row).sort((a, b) => row[b] - row[a]).forEach((k, i) => { rankOf[k] = i + 1; });
+    const unit = unitFor(g.all.hands);
+    const deals = keys.reduce((a, k) => a + g.tkey[k].dealt, 0);
+    const net = keys.reduce((a, k) => a + g.tkey[k].bb, 0);
+
+    const sec = el('div', 'shTGame');
+    const head = el('div', 'evHead');
+    head.appendChild(el('span', 'gm', g.label));
+    head.appendChild(el('span', null, keys.length + ' different hand' + (keys.length === 1 ? '' : 's') +
+      ' · ' + deals + ' deal' + (deals === 1 ? '' : 's') + ' of ' + total.toLocaleString() + ' the table knows'));
+    head.appendChild(el('span', null, 'fair share ' + (100 * fair).toFixed(1) + '%'));
+    head.appendChild(el('span', net > 0 ? 'up' : net < 0 ? 'dn' : null, 'net ' + sgn(net) + ' ' + unit));
+    head.appendChild(el('span', 'dim', 'strongest first, by the ' + n + '-player EV table · ' + T.note));
+    sec.appendChild(head);
+
+    const grid = el('div', 'evGrid'), strip = el('div', 'shTStrip');
+    keys.forEach(k => {
+      const e = eqOf(k), s = g.tkey[k], t = el('div', 'evTile');
+      const d = Math.max(-1, Math.min(1, (e - fair) / (e >= fair ? 1 - fair : fair)));
+      t.style.setProperty('--h', d >= 0 ? 140 : 0);
+      t.style.setProperty('--a', (0.18 + 0.62 * Math.abs(d)).toFixed(2));
+      // one tournament is far too few deals for a verdict — the bar is simply
+      // what this hand did for you here
+      t.classList.add(s.bb > 0 ? 'won' : s.bb < 0 ? 'lost' : 'even');
+      t.appendChild(el('b', null, PSEV.pretty(gk, k)));
+      t.appendChild(el('span', 'eq', (100 * e).toFixed(1) + '%'));
+      t.appendChild(el('span', 'you', '×' + s.dealt + ' · ' + sgn(s.bb)));
+      t.title = '#' + (rankOf[k] || '?') + ' of ' + total.toLocaleString() + ' at ' + n + ' players · dealt ' +
+        s.dealt + ', played ' + s.played + ', net ' + sgn(s.bb) + ' ' + unit;
+      t.onclick = () => {
+        grid.querySelectorAll('.sel').forEach(x => x.classList.remove('sel'));
+        t.classList.add('sel');
+        heldList(strip, PSEV.pretty(gk, k), s, tid, idxOf, unit);
+      };
+      grid.appendChild(t);
+    });
+    sec.appendChild(grid);
+    sec.appendChild(strip);
+    holder.appendChild(sec);
+    return true;
+  }
+
+  /* box: where it goes; tid: the tournament; name: the account that played it */
+  async function tourneyGrid(box, tid, name) {
+    if (!global.PSEV || !global.PSHome) return false;
+    const lib = await PSHome.library();
+    const hs = lib.hands.filter(h => h.tourney === tid);
+    if (!hs.length) return false;
+    const tally = {};
+    hs.forEach(h => { if (h.hero) tally[h.hero] = (tally[h.hero] || 0) + 1; });
+    const who = tally[name] ? name : Object.keys(tally).sort((a, b) => tally[b] - tally[a])[0];
+    if (!who) return false;
+    const byGame = collect(hs, who);
+    const games = Object.keys(byGame).filter(k => PSEV.has(k) && Object.keys(byGame[k].tkey).length);
+    if (!games.length) return false;
+    // a mixed game can deal games HORSE+ has no table for (2-7, badugi, draw)
+    const noTable = Object.keys(byGame).filter(k => !PSEV.has(k)).map(k => byGame[k].label);
+    await Promise.all(games.map(k => PSEV.load(k)));
+    // hand numbers as the review counts them, so "#14" means the same thing in both
+    const idxOf = {};
+    hs.filter(h => h.seats.some(z => z.name === who && z.inHand))
+      .sort((a, b) => (a.dateObj || 0) - (b.dateObj || 0))
+      .forEach((h, i) => { idxOf[h.id] = i + 1; });
+
+    const holder = el('div', 'shTourney');
+    let any = false;
+    games.sort((a, b) => byGame[b].all.dealt - byGame[a].all.dealt)
+      .forEach(k => { if (gameGrid(holder, k, byGame[k], tid, idxOf)) any = true; });
+    if (!any) return false;
+    box.appendChild(el('h4', 'sec', 'Starting hands you were dealt'));
+    box.appendChild(el('div', 'dim trNote', 'Every starting hand that came out for you in this tournament, strongest first by the HORSE+ EV table — ' +
+      'hands you were never dealt here are left out. Colour is the table’s equity against the fair share (greener above, redder below); ' +
+      'the bar on the left is what the hand did for you here, win or lose. Click one for every time you held it.'));
+    if (noTable.length) box.appendChild(el('div', 'dim trNote',
+      'No EV table for ' + noTable.join(', ') + ' — those hands are not in the grid. The tables cover Razz, Stud, Stud Hi/Lo, Omaha Hi/Lo and Hold’em.'));
+    box.appendChild(holder);
+    return true;
+  }
+
   function init() {
     $('#shHero').onchange = e => { hero = e.target.value; game = ''; picked = ''; save(); render(); };
     $('#shGame').onchange = e => { game = e.target.value; picked = ''; evN = 0; save(); draw(); };
@@ -587,5 +719,5 @@
     $('#shSort').onchange = e => { evSort = e.target.value; save(); draw(); };
   }
 
-  global.PSStart = { init, render, classify, collect, notesFor, verdict, frequencies };
+  global.PSStart = { init, render, classify, collect, notesFor, verdict, frequencies, tourneyGrid };
 })(typeof window !== 'undefined' ? window : globalThis);
