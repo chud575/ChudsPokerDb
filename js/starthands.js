@@ -613,7 +613,7 @@
   }
 
   /* one game's grid — a HORSE tournament gets one of these per game it dealt */
-  function gameGrid(holder, gk, g, tid, idxOf) {
+  function gameGrid(holder, gk, g, tid, idxOf, view) {
     const T = PSEV.table(gk);
     if (!T) return false;
     // One table size for the whole grid, so the order is the game's own order
@@ -645,27 +645,60 @@
     head.appendChild(el('span', 'dim', 'strongest first, by the ' + n + '-player EV table · ' + T.note));
     sec.appendChild(head);
 
-    const grid = el('div', 'evGrid'), strip = el('div', 'shTStrip');
-    keys.forEach(k => {
-      const e = eqOf(k), s = g.tkey[k], t = el('div', 'evTile');
-      const d = Math.max(-1, Math.min(1, (e - fair) / (e >= fair ? 1 - fair : fair)));
-      t.style.setProperty('--h', d >= 0 ? 140 : 0);
-      t.style.setProperty('--a', (0.18 + 0.62 * Math.abs(d)).toFixed(2));
-      // one tournament is far too few deals for a verdict — the bar is simply
-      // what this hand did for you here
-      t.classList.add(s.bb > 0 ? 'won' : s.bb < 0 ? 'lost' : 'even');
-      t.appendChild(el('b', null, PSEV.pretty(gk, k)));
-      t.appendChild(el('span', 'eq', (100 * e).toFixed(1) + '%'));
-      t.appendChild(el('span', 'you', '×' + s.dealt + ' · ' + sgn(s.bb)));
-      t.title = '#' + (rankOf[k] || '?') + ' of ' + total.toLocaleString() + ' at ' + n + ' players · dealt ' +
-        s.dealt + ', played ' + s.played + ', net ' + sgn(s.bb) + ' ' + unit;
-      t.onclick = () => {
-        grid.querySelectorAll('.sel').forEach(x => x.classList.remove('sel'));
-        t.classList.add('sel');
-        heldList(strip, PSEV.pretty(gk, k), s, tid, idxOf, unit);
-      };
-      grid.appendChild(t);
-    });
+    const strip = el('div', 'shTStrip');
+    let grid;
+    if (view === 'list') {
+      // the same hands as a table: sortable, with the numbers spelled out
+      grid = el('table', 'tbl stats shTbl evList');
+      const hr = grid.insertRow();
+      ['#', 'Hand', 'Table equity', '', 'vs fair', 'Dealt', 'Played', 'Won', 'Net BB'].forEach(h => { const th = document.createElement('th'); th.textContent = h; hr.appendChild(th); });
+      const top = Math.max(...keys.map(eqOf));
+      keys.forEach(k => {
+        const e = eqOf(k), s = g.tkey[k], r = grid.insertRow();
+        r.insertCell().textContent = rankOf[k] || '';
+        const nm = r.insertCell(); nm.textContent = PSEV.pretty(gk, k); nm.className = 'pl';
+        r.insertCell().textContent = (100 * e).toFixed(1) + '%';
+        const bc = r.insertCell(), bar = el('div', 'evBar'), fill = el('i');
+        fill.style.width = (100 * Math.min(1, e / top)).toFixed(1) + '%';
+        fill.className = e >= fair ? 'up' : 'dn';
+        bar.appendChild(fill); bc.appendChild(bar);
+        const vf = r.insertCell(); vf.textContent = sgn(100 * (e - fair)) + ' pts'; vf.className = e >= fair ? 'up' : 'dn';
+        r.insertCell().textContent = s.dealt;
+        r.insertCell().textContent = s.played;
+        r.insertCell().textContent = s.won;
+        const nc = r.insertCell(); nc.textContent = sgn(s.bb); nc.className = s.bb > 0 ? 'up' : s.bb < 0 ? 'dn' : '';
+        r.style.cursor = 'pointer';
+        r.title = 'Every time you held it in this tournament';
+        r.onclick = () => {
+          grid.querySelectorAll('tr.me').forEach(x => x.classList.remove('me'));
+          r.classList.add('me');
+          heldList(strip, PSEV.pretty(gk, k), s, tid, idxOf, unit);
+        };
+      });
+      if (global.PSTourneys) PSTourneys.sortable(grid);
+    } else {
+      grid = el('div', 'evGrid');
+      keys.forEach(k => {
+        const e = eqOf(k), s = g.tkey[k], t = el('div', 'evTile');
+        const d = Math.max(-1, Math.min(1, (e - fair) / (e >= fair ? 1 - fair : fair)));
+        t.style.setProperty('--h', d >= 0 ? 140 : 0);
+        t.style.setProperty('--a', (0.18 + 0.62 * Math.abs(d)).toFixed(2));
+        // one tournament is far too few deals for a verdict — the bar is simply
+        // what this hand did for you here
+        t.classList.add(s.bb > 0 ? 'won' : s.bb < 0 ? 'lost' : 'even');
+        t.appendChild(el('b', null, PSEV.pretty(gk, k)));
+        t.appendChild(el('span', 'eq', (100 * e).toFixed(1) + '%'));
+        t.appendChild(el('span', 'you', '×' + s.dealt + ' · ' + sgn(s.bb)));
+        t.title = '#' + (rankOf[k] || '?') + ' of ' + total.toLocaleString() + ' at ' + n + ' players · dealt ' +
+          s.dealt + ', played ' + s.played + ', net ' + sgn(s.bb) + ' ' + unit;
+        t.onclick = () => {
+          grid.querySelectorAll('.sel').forEach(x => x.classList.remove('sel'));
+          t.classList.add('sel');
+          heldList(strip, PSEV.pretty(gk, k), s, tid, idxOf, unit);
+        };
+        grid.appendChild(t);
+      });
+    }
     sec.appendChild(grid);
     sec.appendChild(strip);
     holder.appendChild(sec);
@@ -695,11 +728,31 @@
       .forEach((h, i) => { idxOf[h.id] = i + 1; });
 
     const holder = el('div', 'shTourney');
-    let any = false;
-    games.sort((a, b) => byGame[b].all.dealt - byGame[a].all.dealt)
-      .forEach(k => { if (gameGrid(holder, k, byGame[k], tid, idxOf)) any = true; });
-    if (!any) return false;
+    const VKEY = 'psreplayer.tourneyStartView';
+    let view = 'grid';
+    try { view = localStorage.getItem(VKEY) === 'list' ? 'list' : 'grid'; } catch (e) { }
+    games.sort((a, b) => byGame[b].all.dealt - byGame[a].all.dealt);
+    const draw = () => {
+      holder.innerHTML = '';
+      let any = false;
+      games.forEach(k => { if (gameGrid(holder, k, byGame[k], tid, idxOf, view)) any = true; });
+      return any;
+    };
+    if (!draw()) return false;
     box.appendChild(el('h4', 'sec', 'Starting hands you were dealt'));
+    // grid or list — the same hands either way; the choice is remembered
+    const tg = el('div', 'lkPick');
+    [['grid', 'Grid'], ['list', 'List']].forEach(([v, label]) => {
+      const b = el('button', 'btn' + (view === v ? ' primary' : ''), label);
+      b.onclick = () => {
+        view = v;
+        try { localStorage.setItem(VKEY, v); } catch (e) { }
+        tg.querySelectorAll('.btn').forEach(x => x.classList.toggle('primary', x === b));
+        draw();
+      };
+      tg.appendChild(b);
+    });
+    box.appendChild(tg);
     box.appendChild(el('div', 'dim trNote', 'Every starting hand that came out for you in this tournament, strongest first by the HORSE+ EV table — ' +
       'hands you were never dealt here are left out. Colour is the table’s equity against the fair share (greener above, redder below); ' +
       'the bar on the left is what the hand did for you here, win or lose. Click one for every time you held it.'));

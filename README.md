@@ -554,6 +554,10 @@ screen:
 * Pick the number of players (it starts on the size you are most often dealt) and sort by equity,
   times dealt, your net or your BB per deal. Click a hand for its equity at every table size, the
   write-up, and every time you held it.
+* A tournament's page carries the same thing for just that tournament — **Starting hands you were
+  dealt** — with a **Grid / List** toggle: the grid of tiles, or a sortable table (rank in the EV table,
+  equity, edge over the fair share, dealt, played, won, net). Click a hand in either for every time you
+  held it there. The choice is remembered.
 * The ordinary tables gain **Table equity** and **vs fair share** columns: the table's equity for
   those cards at the number of players each was dealt with.
 
