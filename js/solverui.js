@@ -112,7 +112,8 @@
       if (r.advice.skipped) sub.textContent = r.advice.skipped;
       else if (r.advice.error) sub.textContent = 'solver error: ' + r.advice.error;
       else sub.textContent = (r.advice.reasoning || r.advice.strategy || '') +
-        (r.advice.model ? '  [' + r.advice.model + ']' : '');
+        (r.advice.model ? '  [' + r.advice.model + ']' : '') +
+        (r.advice.note ? '  (limit solver not used: ' + r.advice.note + ')' : '');
       d.appendChild(sub);
       const ctx = el('div', 'svCtx');
       ctx.textContent = r.heroCards.join(' ') +

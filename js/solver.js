@@ -54,6 +54,43 @@
 
   const support = key => GAMES[key] || null;
 
+  /* ---------- limit hold'em: the whole betting line, for the N-max limit solver ----------
+     The classic advisor only sees cards, pot and board.  The limit solver also wants to know
+     who sat where and what everyone did before this decision, so for limit hold'em we send
+     the players in preflop acting order (first to act … small blind, big blind) and every
+     action up to the decision.  Returns null when the hand cannot be described that way
+     (no blinds posted, a dead small blind, the hero not dealt in). */
+  function lineFor(hand, uptoEvent, hero) {
+    if (!hand.game || hand.game.betting !== 'FL') return null;
+    let sbName = null, bbName = null;
+    const dealt = new Set();
+    for (const e of hand.events) {
+      if (e.t === 'post' && e.kind === 'sb') sbName = e.player;
+      if (e.t === 'post' && (e.kind === 'bb' || e.kind === 'sb+bb')) { if (bbName && e.kind === 'sb+bb') return null; bbName = bbName || e.player; }
+      if (e.t === 'post' && e.kind === 'post') return null;            // extra dead money in the pot
+      if (e.t === 'act' || e.t === 'post') dealt.add(e.player);
+    }
+    if (!sbName || !bbName) return null;
+    const ring = hand.seats.filter(p => dealt.has(p.name)).sort((a, b) => a.seat - b.seat).map(p => p.name);
+    const bi = ring.indexOf(bbName);
+    if (bi < 0 || ring.length < 2) return null;
+    const order = ring.slice(bi + 1).concat(ring.slice(0, bi + 1));     // … small blind, big blind
+    if (order[order.length - 2] !== sbName) return null;               // dead button / missing blind
+    const hi = order.indexOf(hero);
+    if (hi < 0) return null;
+    const actions = [];
+    let st = 0;
+    for (let i = 0; i < uptoEvent; i++) {
+      const e = hand.events[i];
+      if (e.t === 'street' && STREET_IX[e.id] != null) st = STREET_IX[e.id];
+      if (e.t !== 'act') continue;
+      const seat = order.indexOf(e.player);
+      if (seat < 0) return null;
+      actions.push([st, seat, e.verb]);
+    }
+    return { seats: order.length, hero: hi, actions: actions };
+  }
+
   /* ---------- pull every hero decision out of a replayed hand ---------- */
   function spots(hand, steps, heroName) {
     const g = support(hand.game.key);
@@ -93,6 +130,7 @@
         actual: e.verb,
         actualLabel: e.verb + (e.to ? ' to ' + e.to : e.amount ? ' ' + e.amount : ''),
       };
+      if (g.fam === 'flop') spot.line = lineFor(hand, i, hero);
       if (!valid(spot)) { spot.skip = reasonInvalid(spot); }
       out.push(spot);
     });
@@ -127,11 +165,13 @@
         num_opponents: s.opponents, opponent_boards: s.oppBoards,
       };
     }
-    return {
+    const p = {
       hero_cards: s.heroCards, street: STREET_IX[s.street],
       to_call: +s.toCall.toFixed(3), pot: +s.pot.toFixed(3),
       num_opponents: s.opponents, board: s.board,
     };
+    if (s.line) p.line = s.line;          // limit hold'em: lets the server use the N-max limit solver
+    return p;
   }
 
   async function advise(s) {
@@ -150,6 +190,8 @@
         model: j.model_used || '',
         reasoning: j.reasoning || '',
         strategy: j.rebel_strategy || j.cfr_strategy || '',
+        classProbs: j.class_probs || null,      // {fold, passive, aggressive} when the limit solver answered
+        note: j.line_note || '',
         raw: j,
       };
     } catch (e) {
@@ -166,9 +208,15 @@
     if (/raise|bet|complete/.test(a)) return 'aggressive';
     return a;
   }
-  function verdict(mine, theirs) {
+  /* a play the solver itself makes at least this often is not a mistake, even if it is not its favourite */
+  const MIXED_OK = 0.25;
+  function verdict(mine, theirs, classProbs) {
     const a = norm(mine), b = norm(theirs);
     if (a === b) return 'match';
+    if (classProbs) {
+      const k = a === 'fold' ? 'fold' : a === 'aggressive' ? 'aggressive' : 'passive';
+      if ((classProbs[k] || 0) >= MIXED_OK) return 'match';
+    }
     // checking when it says call (or the reverse) is the same passive choice
     if ((a === 'check' && b === 'call') || (a === 'call' && b === 'check')) return 'match';
     return 'differs';
@@ -180,7 +228,7 @@
     for (const s of list) {
       const a = await advise(s);
       const row = Object.assign({}, s, { advice: a });
-      row.verdict = a.action ? verdict(s.actual, a.action) : null;
+      row.verdict = a.action ? verdict(s.actual, a.action, a.classProbs) : null;
       out.push(row);
       if (onEach) onEach(row, out.length, list.length);
     }
