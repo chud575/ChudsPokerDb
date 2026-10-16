@@ -976,6 +976,7 @@
   if (global.PSTourneys) PSTourneys.init();
   if (global.PSStart) PSStart.init();
   if (global.PSLuckUI) PSLuckUI.init();
+  if (global.PSDraws) PSDraws.init();
   if (global.PSPlans) PSPlans.init();
   if (global.PSSolverUI) PSSolverUI.init();
 })(window);

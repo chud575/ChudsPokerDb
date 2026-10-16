@@ -22,6 +22,9 @@
     { re: /Hold\s*'?em/i,                key: 'holdem', label: "Hold'em",         fam: 'flop', cards: 2 },
     // draw games — sites write these in either word order ("Triple Draw 2-7" /
     // "2-7 Triple Draw"), and some spell the lowball out, so match both.
+    // badugi split with a lowball half — 5 cards, three draws
+    { re: /Badeuc(e)?y/i,                                         key: 'badeucy', label: 'Badeucy',        fam: 'draw', cards: 5, draws: 3 },
+    { re: /Badac(e)?y/i,                                          key: 'badacey', label: 'Badacey',        fam: 'draw', cards: 5, draws: 3 },
     { re: /Badugi/i,                                              key: 'badugi', label: 'Badugi',          fam: 'draw', cards: 4, draws: 3 },
     { re: /(?:Triple\s*Draw\s*2-7|2-7\s*Triple\s*Draw|Deuce[\s-]*to[\s-]*Seven\s*Triple)/i,
                                                                   key: 'td27',   label: '2-7 Triple Draw', fam: 'draw', cards: 5, draws: 3 },

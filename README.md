@@ -438,6 +438,31 @@ each of which opens in the replayer.
   look".
 * 2-7 hands are read by 2-7 rules: aces are high and a pat straight or flush is not a pat hand.
 
+## Draw performance
+
+The **Draws** tab answers "when I had this draw at this point, how often did I make it, and how did
+those hands go?" Pick an account and a game, then build the filter:
+
+* **Look at my cards** — in stud, after so many cards (3rd street … 6th street); in a draw game, as
+  dealt or after the 1st / 2nd draw.
+* **Where I had all of** — any number of conditions: a low draw (*4 to a 5*, *3 to an 8*…), a flush
+  draw, an open-ended straight draw (or any four to a straight), a badugi draw (*3-card badugi, 7 or
+  better*), a pair.
+* **And count it as made if I ended with any of / all of** — made low (*a 6 or better*, *an 8 or
+  better*), made flush, made straight, made badugi.
+
+Ready-made filters cover the obvious ones per game — a wheel draw in the first four Razz cards that
+made a 6; flush + open-ended + low draw in the first five Stud 8 cards that hit at least one; 3 to a
+badugi and 4 to a 7 by the 2nd Badeucy draw. The results split every matching hand into **made it**,
+**saw every card and missed**, **folded before the end**, and **hand ended early**, each with pots won,
+win %, showdowns and net, plus the fair hit rate (only hands where you got every card), how often
+each outcome came in on its own, and the hands themselves — one at a time or all at once in the
+replayer.
+
+Low rules follow the game: ace low for Razz, Stud 8, A-5 and badugi; ace high with straights and
+flushes counting against you for 2-7. Badeucy and Badacey are recognised as games (badugi split with a
+2-7 or A-5 low); with no hands of them to test against, their showdown equity is not modelled.
+
 ## Skill vs luck
 
 Measured on the showdowns where every remaining player's cards are in the history. Each is one of:

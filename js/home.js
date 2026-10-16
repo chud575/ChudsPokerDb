@@ -31,6 +31,7 @@
     if (v === 'tourneys' && global.PSTourneys) PSTourneys.render();
     if (v === 'starts' && global.PSStart) PSStart.render();
     if (v === 'luck' && global.PSLuckUI) PSLuckUI.render();
+    if (v === 'draws' && global.PSDraws) PSDraws.render();
   }
 
   /* ---------- library ---------- */

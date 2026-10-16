@@ -39,6 +39,7 @@ body.view-me       #tabs [data-go=me],
 body.view-tourneys #tabs [data-go=tourneys],
 body.view-starts   #tabs [data-go=starts],
 body.view-luck     #tabs [data-go=luck],
+body.view-draws    #tabs [data-go=draws],
 body.view-lessons  #tabs [data-go=lessons]{
   color:#fff;background:var(--bg2);border-bottom-color:var(--accent);font-weight:600;
 }
@@ -790,3 +791,13 @@ body.twocolor .cd.su-c{color:#e6ebf2}
 .rvTag.value,.rvTag.catch,.rvTag.steal{color:#9be3b9;border-color:#2c6b47;background:#11241a}
 .rvTag.look{color:#b9c6d6;border-color:#3a4658;background:#161d27}
 #toDetail .rvTbl td.why,.trBox .rvTbl td.why{white-space:normal}
+
+/* ---------- draw performance ---------- */
+body.view-draws #viewDraws{display:flex;flex-direction:column;height:calc(100vh - var(--chrome))}
+.drBox{max-width:980px;background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:12px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.drBox select,.drCond select{background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:3px 6px;color:var(--fg);font:inherit;font-size:12px}
+.drLine{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px;margin-top:4px}
+.drCond{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding-left:14px;font-size:12px}
+.drCond .dim{font-size:11.5px}
+.drCond .btn,.drBox>.btn{padding:2px 9px;font-size:11px}
+body.blackbg .drBox{background:#0d0d0d;border-color:#242424}
