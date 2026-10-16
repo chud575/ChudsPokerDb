@@ -18,7 +18,19 @@
   let accounts = [];         // your own names, from the summaries you imported
 
   /* ===================================================================== */
+  /* On the hosted site, tell the server which screen was opened — the screen's name and nothing
+     else, counted anonymously for the site's usage page. Off disk or on the bare address it is silent. */
+  let shown = false;
+  function track(v) {
+    if (!shown) { shown = true; return; }              // the first screen is the page load, already counted
+    try {
+      if (location.protocol !== 'https:' || !navigator.sendBeacon) return;
+      navigator.sendBeacon('/auth/t', new Blob([JSON.stringify({ a: 'replayer', v: v })], { type: 'application/json' }));
+    } catch (e) { }
+  }
+
   function show(v) {
+    if (v !== view || !shown) track(v);
     view = v;
     if (document.scrollingElement) document.scrollingElement.scrollLeft = 0;
     document.body.className = document.body.className.replace(/\bview-\w+/g, '').trim() + ' view-' + v;
