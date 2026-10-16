@@ -459,6 +459,20 @@ win %, showdowns and net, plus the fair hit rate (only hands where you got every
 each outcome came in on its own, and the hands themselves — one at a time or all at once in the
 replayer.
 
+**Compare with what chance would give** (a checkbox under the filter) adds:
+
+* **Dealt it** — how often a random deal has the draw at the first checkpoint (3rd street, or as dealt),
+  times the hands you played, against how often you had it. Later checkpoints depend on what you kept
+  and played, so they are not compared.
+* **Made it** — for every hand, the chance of making it from the cards you held at the checkpoint
+  (600 seeded simulated finishes; in stud from a deck without your cards and every card opponents
+  showed, in draw games drawing to the target each round and stopping once made). Their sum, over the
+  hands you saw through, is the expected number of hits, shown against what you made, with how big a
+  swing that is. Each hand's chance appears in the hand list.
+* **What the run was worth** — the extra or missing hits times how much more a made hand won than a
+  missed one in these same hands, and your net with the run at expectation. Only priced once there
+  are at least three of each and made hands did better.
+
 Low rules follow the game: ace low for Razz, Stud 8, A-5 and badugi; ace high with straights and
 flushes counting against you for 2-7. Badeucy and Badacey are recognised as games (badugi split with a
 2-7 or A-5 low); with no hands of them to test against, their showdown equity is not modelled.

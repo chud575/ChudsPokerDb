@@ -231,6 +231,124 @@
     return { piles: piles, looked: looked, matched: piles.hit.length + piles.missed.length + piles.folded.length + piles.ended.length };
   }
 
+  /* ---------- against expectation ----------
+     Two things chance decides, measured against what chance would give:
+       dealt   how often a random deal has the draw at the first checkpoint
+               (later checkpoints depend on what you kept, so they are not pure chance)
+       made    for each hand, the chance of making it from the cards you had at
+               the checkpoint, drawing to it every time:
+                 stud  the rest of your seven cards, from a deck without your cards
+                       and everyone else's that showed
+                 draw  each remaining draw keeps the cards that work toward the
+                       target and draws the rest, stopping once it is made
+     Expected made = the sum of those chances; the gap between that and what
+     happened, times what a hit was worth over a miss here, is the luck in the run. */
+  const DECK = [];
+  for (const r of RN) for (const u of 'cdhs') DECK.push(r + u);
+  function rng(seed) {
+    let a = 2166136261;
+    for (let i = 0; i < seed.length; i++) a = Math.imul(a ^ seed.charCodeAt(i), 16777619);
+    return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  }
+  const shuffleInto = (deck, n, rnd) => { for (let i = 0; i < n; i++) { const j = i + Math.floor(rnd() * (deck.length - i)); const t = deck[i]; deck[i] = deck[j]; deck[j] = t; } };
+  const met = (f, cards) => { const r = f.hit.map(c => KINDS[c.kind].test(cards, f.game, c.p)); return f.mode === 'all' ? r.every(Boolean) : r.some(Boolean); };
+
+  // the cards worth keeping toward one target, in a draw game
+  function keepFor(cond, cards, g) {
+    const p = cond.p;
+    if (cond.kind === 'madeBadugi' || cond.kind === 'badugiDraw') {
+      const k = p.k || 13, ok = cards.filter(c => loV(c) <= k);
+      let best = [];
+      for (let m = 1; m < 1 << ok.length; m++) {
+        const sub = ok.filter((_, i) => m >> i & 1);
+        if (new Set(sub.map(loV)).size !== sub.length || new Set(sub.map(c => c[1])).size !== sub.length) continue;
+        if (sub.length > best.length || (sub.length === best.length && Math.max(...sub.map(loV)) < Math.max(...best.map(loV)))) best = sub;
+      }
+      return best;
+    }
+    if (cond.kind === 'madeLow' || cond.kind === 'lowDraw') {
+      const v = aceLow(g) ? loV : hiV, seen = new Set(), keep = [];
+      cards.slice().sort((a, b) => v(a) - v(b)).forEach(c => { if (v(c) <= p.k && !seen.has(v(c))) { seen.add(v(c)); keep.push(c); } });
+      return keep.slice(0, 5);
+    }
+    return cards.slice();
+  }
+
+  const DEALT_SIMS = 50000, HIT_SIMS = 600;
+  const dealtCache = {};
+  function dealtProb(f) {
+    const n = STUD[f.game] ? f.at : (f.game === 'badugi' ? 4 : 5);
+    const key = JSON.stringify([f.game, n, f.had]);
+    if (dealtCache[key] != null) return dealtCache[key];
+    const rnd = rng(key), d = DECK.slice();
+    let yes = 0;
+    for (let i = 0; i < DEALT_SIMS; i++) {
+      shuffleInto(d, n, rnd);
+      const cards = d.slice(0, n);
+      if (f.had.every(c => KINDS[c.kind].test(cards, f.game, c.p))) yes++;
+    }
+    return (dealtCache[key] = yes / DEALT_SIMS);
+  }
+
+  function hitProb(row, f, who) {
+    const h = row.h, cp = row.at, used = new Set(cp);
+    if (STUD[f.game]) {
+      // everyone else's cards that showed, at any point, are not coming to you
+      for (const e of h.events) if (e.t === 'deal' && e.player !== who) e.all.forEach(c => used.add(c));
+      for (const n in (h.revealed || {})) if (n !== who) h.revealed[n].forEach(c => used.add(c));
+      const deck = DECK.filter(c => !used.has(c)), need = 7 - cp.length, rnd = rng(h.id + '|' + f.at);
+      if (need <= 0) return met(f, cp) ? 1 : 0;
+      let yes = 0;
+      for (let i = 0; i < HIT_SIMS; i++) { shuffleInto(deck, need, rnd); if (met(f, cp.concat(deck.slice(0, need)))) yes++; }
+      return yes / HIT_SIMS;
+    }
+    // draw game: your discards before the checkpoint are out of the deck too
+    let round = 0;
+    for (const e of h.events) {
+      if ((e.t === 'discard' || e.t === 'pat') && e.player === who) round++;
+      if (round > f.at) break;
+      if (e.t === 'discard' && e.player === who && e.cards) e.cards.forEach(c => used.add(c));
+    }
+    const deck = DECK.filter(c => !used.has(c)), left = Math.max(0, (h.game.draws || 3) - f.at), rnd = rng(h.id + '|' + f.at);
+    let yes = 0;
+    for (let i = 0; i < HIT_SIMS; i++) {
+      let hand = cp.slice(), pos = 0;
+      // a fresh order for this run; drawing walks down it
+      shuffleInto(deck, Math.min(deck.length, 5 * left + 5), rnd);
+      for (let r = 0; r < left && !met(f, hand); r++) {
+        // keep toward whichever target needs the fewest new cards
+        let keep = null;
+        f.hit.forEach(c => { const k = keepFor(c, hand, f.game); if (!keep || k.length > keep.length) keep = k; });
+        const draw = hand.length - keep.length;
+        hand = keep.concat(deck.slice(pos, pos + draw));
+        pos += draw;
+      }
+      if (met(f, hand)) yes++;
+    }
+    return yes / HIT_SIMS;
+  }
+
+  /* the comparison for one set of results */
+  function expectation(R, f, who, onProgress) {
+    const P = R.piles, all = P.hit.concat(P.missed, P.folded, P.ended);
+    all.forEach(r => { if (r.p == null) r.p = hitProb(r, f, who); });
+    const through = all.filter(r => r.complete);               // hands that got every card
+    const exp = through.reduce((a, r) => a + r.p, 0), sd = Math.sqrt(through.reduce((a, r) => a + r.p * (1 - r.p), 0));
+    const got = through.filter(r => r.hit).length;
+    const avg = l => l.length ? l.reduce((a, r) => a + r.net, 0) / l.length : 0;
+    const hitN = through.filter(r => r.hit), missN = through.filter(r => !r.hit);
+    // what a hit was worth over a miss — only once there are enough of each to say, and only if hitting paid
+    const worth = hitN.length >= 3 && missN.length >= 3 && avg(hitN) > avg(missN) ? avg(hitN) - avg(missN) : null;
+    const first = STUD[f.game] ? f.at === 3 : f.at === 0;
+    return {
+      dealt: first ? dealtProb(f) : null, looked: R.looked, matched: R.matched,
+      through: through.length, got: got, exp: exp, sd: sd,
+      expAll: all.reduce((a, r) => a + r.p, 0), all: all.length,
+      worth: worth, luck: worth == null ? null : (got - exp) * worth,
+      net: all.reduce((a, r) => a + r.net, 0),
+    };
+  }
+
   /* ---------- the screen ---------- */
   const KEY = 'psreplayer.draws';
   let st = { hero: '', game: '', f: null };
@@ -337,6 +455,11 @@
     const addM = el('button', 'btn', '+ another outcome');
     addM.onclick = () => { f.hit.push(C(kindsFor(g).find(k => /^made/.test(k)) || kindsFor(g)[1])); changed(); };
     box.appendChild(addM);
+    const cl = el('label', 'drLine drCmp');
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!st.cmp;
+    cb.onchange = () => { st.cmp = cb.checked; changed(); };
+    cl.appendChild(cb); cl.appendChild(el('b', null, ' Compare with what chance would give'));
+    box.appendChild(cl);
     body.appendChild(box);
 
     // ---- the results
@@ -375,6 +498,7 @@
       const parts = f.hit.map((c, i) => KINDS[c.kind].label(c.p, g) + ' ' + all.filter(r => r.hits[i]).length);
       body.appendChild(el('div', 'dim trNote', 'Each outcome on its own: ' + parts.join(' · ') + '.'));
     }
+    if (st.cmp) compareSection(body, R, f, all);
     body.appendChild(el('div', 'dim trNote', '“Made it” is judged on the last cards you held. “Saw every card” means all seven in stud, every draw in a draw game. ' +
       '“Hand ended early” is a pot that was over before your last card — usually because everyone else folded. Net is in big bets (limit) or big blinds, at the level each hand was played.'));
 
@@ -386,13 +510,14 @@
     body.appendChild(bar);
     const lt = el('table', 'tbl stats lkHands');
     const h2 = lt.insertRow();
-    ['Date', 'At ' + atLabel(g, f.at).replace(/ \(.*\)/, ''), 'Ended with', 'Made it', 'Result', 'Net ' + unit].forEach(x => { const th = document.createElement('th'); th.textContent = x; h2.appendChild(th); });
+    ['Date', 'At ' + atLabel(g, f.at).replace(/ \(.*\)/, ''), 'Ended with'].concat(st.cmp ? ['Chance to make it'] : [], ['Made it', 'Result', 'Net ' + unit]).forEach(x => { const th = document.createElement('th'); th.textContent = x; h2.appendChild(th); });
     const cardsEl = cs => { const w = el('span', 'lkCards'); (cs || []).forEach(c => w.appendChild(el('span', 'cd su-' + c[1], c[0] + SUIT[c[1]]))); return w; };
     all.slice().sort((a, b) => (b.h.dateObj || 0) - (a.h.dateObj || 0)).slice(0, 500).forEach(r => {
       const tr = lt.insertRow();
       tr.insertCell().textContent = r.h.dateObj ? r.h.dateObj.toLocaleDateString() : '';
       tr.insertCell().appendChild(cardsEl(r.at));
       tr.insertCell().appendChild(cardsEl(r.final));
+      if (st.cmp) tr.insertCell().textContent = r.p == null ? '' : Math.round(100 * r.p) + '%';
       const mi = tr.insertCell(); mi.textContent = r.hit ? 'yes' : P.missed.includes(r) ? 'missed' : P.folded.includes(r) ? 'folded' : 'ended early'; mi.className = r.hit ? 'up' : '';
       tr.insertCell().textContent = r.won ? (r.sd ? 'won at showdown' : 'won') : r.sd ? 'lost at showdown' : 'lost';
       const nc = tr.insertCell(); nc.textContent = sgn(r.net); nc.className = r.net > 0 ? 'up' : r.net < 0 ? 'dn' : '';
@@ -402,10 +527,48 @@
     body.appendChild(global.PSTourneys ? PSTourneys.sortable(lt) : lt);
   }
 
+  function compareSection(body, R, f, all) {
+    const E = expectation(R, f, st.hero);
+    body.appendChild(el('h4', 'sec', 'Against what chance would give'));
+    const k = el('div', 'trKpis');
+    const kpi = (label, v, cls, tip) => { const d = el('div', 'kpi ' + (cls || '')); d.appendChild(el('b', null, v)); d.appendChild(el('small', null, label)); if (tip) d.title = tip; k.appendChild(d); };
+    const sg = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1);
+    if (E.dealt != null) {
+      const ed = E.looked * E.dealt;
+      kpi('dealt it · expected ' + ed.toFixed(1), E.matched + ' (' + sg(E.matched - ed) + ')', '', 'A random deal has it ' + (100 * E.dealt).toFixed(1) + '% of the time');
+    }
+    kpi('made it, of ' + E.through + ' seen through · expected ' + E.exp.toFixed(1), E.got + ' (' + sg(E.got - E.exp) + ')', E.got - E.exp > 0.5 ? 'up' : E.got - E.exp < -0.5 ? 'dn' : '',
+      'The sum of each hand’s chance of making it from where it stood');
+    if (E.luck != null) kpi('the run was worth, BB', sgn(E.luck), E.luck > 0 ? 'up' : E.luck < 0 ? 'dn' : '', 'Extra (or missing) hits × what a hit was worth over a miss here');
+    if (E.luck != null) kpi('net with the run at expectation, BB', sgn(E.net - E.luck), '', 'Your net with the luck of the draw taken out');
+    body.appendChild(k);
+    const lines = [];
+    if (E.dealt != null) {
+      const ed = E.looked * E.dealt;
+      lines.push('Dealt: you had it ' + E.matched + ' times in ' + E.looked.toLocaleString() + ' hands. A random deal has it ' + (100 * E.dealt).toFixed(1) + '% of the time, so about ' +
+        ed.toFixed(1) + ' were due — ' + (Math.abs(E.matched - ed) < Math.max(1, Math.sqrt(ed)) ? 'about what you should get.' : E.matched > ed ? sg(E.matched - ed) + ' more than chance.' : sg(E.matched - ed) + ' fewer than chance.'));
+    } else lines.push('How often you had it at this point is not shown against chance: after the first cards it depends on what you kept and played, not only on the deal.');
+    if (E.through) {
+      const z = E.sd ? (E.got - E.exp) / E.sd : 0;
+      lines.push('Made it: of the ' + E.through + ' hands you saw through to the last card, you made it ' + E.got + ' times. Drawing to it from where each one stood, ' + E.exp.toFixed(1) +
+        ' were due (give or take ' + E.sd.toFixed(1) + ') — ' + (Math.abs(z) < 1 ? 'an ordinary run.' : (E.got > E.exp ? 'a lucky' : 'an unlucky') + (Math.abs(z) >= 2 ? ', unusual' : '') + ' run, ' + sg(E.got - E.exp) + ' hits.'));
+    }
+    if (E.worth != null) lines.push('What it was worth: here a made hand averaged ' + sgn(E.worth) + ' BB more than a miss, so ' + sg(E.got - E.exp) + ' hits against expectation is ' + sgn(E.luck) +
+      ' BB. You made ' + sgn(E.net) + ' BB on these hands; at the expected hit rate it would have been ' + sgn(E.net - E.luck) + ' BB.');
+    else if (E.through) lines.push('What it was worth: not priced — it needs at least three made and three missed hands seen through, with the made ones doing better, to say what a hit was worth here.');
+    if (E.all > E.through) lines.push('Had you drawn every one of the ' + E.all + ' to the end, about ' + E.expAll.toFixed(1) + ' would have got there.');
+    const ins = el('div', 'shNotes lkIns');
+    lines.forEach(x => ins.appendChild(el('p', null, x)));
+    body.appendChild(ins);
+    body.appendChild(el('div', 'dim trNote', 'Each hand’s chance comes from ' + HIT_SIMS + ' simulated finishes from the cards you held at the checkpoint (the same every time). ' +
+      (STUD[f.game] ? 'Your remaining cards come from a deck without yours and without every card your opponents showed.'
+        : 'Each remaining draw keeps the cards that work toward the target — the best badugi or the lowest different cards under the limit — draws the rest, and stops once it is made; your own earlier discards are out of the deck. Real draws are not always made that way, so this is the chance of the draw itself, not of how you played it.')));
+  }
+
   function init() {
     $('#drHero').onchange = e => { st.hero = e.target.value; st.f = null; save(); render(); };
     $('#drGame').onchange = e => { st.game = e.target.value; st.f = null; save(); render(); };
   }
 
-  global.PSDraws = { init, render, run, track, KINDS, PRESETS, badugiBest };
+  global.PSDraws = { init, render, run, track, KINDS, PRESETS, badugiBest, expectation, hitProb, dealtProb };
 })(typeof window !== 'undefined' ? window : globalThis);
