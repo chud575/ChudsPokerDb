@@ -556,6 +556,21 @@ are in the library: hands, played %, pots won, showdowns, result with and withou
 luck numbers, how you went out (and your equity when you did), and the hands where luck moved the
 most chips.
 
+### Hand tiers against your norm
+
+A tournament's page also shows **Hand tiers — this tournament against your norm**. Every starting hand
+you were dealt goes into one of five tiers — the best 5% of deals, the next 10%, 20%, 30% and the worst
+35% — ranked by the HORSE+ EV table at the table size it was dealt at and weighted by how often each
+hand is dealt (AA is 6 combinations, AKo 12). Draw games, which have no table, place their kinds of
+hand in tiers by hand (a pat 7 is tier 1 in 2-7; a 1-card badugi draw tier 5). A random deal lands in
+each tier at those rates — checked.
+
+The graph has a bar for what each tier made you in that tournament and a marker for what the same
+deals normally make you: your BB per deal in that game and tier over every *other* tournament in the
+library. The table adds deals, played, folded on the first round, the difference, and a read —
+"within normal swing" unless the difference is bigger than the usual spread for that many deals.
+Click a tier for its hands. A tier needs five deals elsewhere in the library to have a norm.
+
 ### Tournament review
 
 With its hand histories in the library, a tournament's page also carries a **Review**: a few sentences

@@ -910,6 +910,15 @@
     }
     pane.appendChild(doc);
 
+    // what each tier of starting hand made you here, against your norm
+    if (global.PSTiers && handTids.has(t.id)) {
+      const tb = el('div', 'toTiers');
+      pane.appendChild(tb);
+      PSTiers.render(tb, t.id, (t.hero && t.hero.name) || acct)
+        .then(ok => { if (!ok) tb.remove(); })
+        .catch(e => { console.warn('tiers', e); tb.remove(); });
+    }
+
     // the starting hands this tournament actually dealt you, in the EV table's order
     if (global.PSStart && PSStart.tourneyGrid && handTids.has(t.id)) {
       const sh = el('div', 'toStart');
