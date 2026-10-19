@@ -37,7 +37,9 @@
       return 5;
     }
     if (game === 'fcd') return { 'Pat hand (straight or better)': 1, 'Three of a kind': 1, 'Two pair': 2, 'Big pair (JJ+)': 2, 'Small pair (TT or lower)': 3, 'Four-flush': 3 }[kind] || 5;
-    if (game === 'omaha' || game === 'o5') return { 'Aces': 1, 'KK / QQ': 2, 'Double paired': 2, 'Rundown': 2, 'Broadway cards': 3, 'Double suited, unconnected': 3, 'Other pair': 4 }[kind] || 5;
+    if (game === 'o58') return { 'A2 with a suited ace': 1, 'A2, ace not suited': 1, 'A3': 2, 'AA without a 2 or 3': 2,
+      'A4 / A5': 3, 'No ace, three wheel cards': 3, 'Ace with no wheel card': 4 }[kind] || 5;
+    if (game === 'omaha' || game === 'o5' || game === 'o6') return { 'Aces': 1, 'KK / QQ': 2, 'Double paired': 2, 'Rundown': 2, 'Broadway cards': 3, 'Double suited, unconnected': 3, 'Other pair': 4 }[kind] || 5;
     return 3;
   }
 

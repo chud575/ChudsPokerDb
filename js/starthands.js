@@ -182,12 +182,12 @@
   }
 
   const BY_GAME = {
-    holdem: holdem, omaha8: omaha8, omaha: omahaHi, o5: omahaHi,
+    holdem: holdem, omaha8: omaha8, omaha: omahaHi, o5: omahaHi, o6: omahaHi, o58: omaha8,
     stud: studHi, stud8: stud8, razz: razz,
     td27: c => lowDraw(c, true), sd27: c => lowDraw(c, true), a5td: c => lowDraw(c, false), a5sd: c => lowDraw(c, false),
     badugi: badugi, fcd: fiveDraw,
   };
-  const NEED = { holdem: 2, omaha8: 4, omaha: 4, o5: 5, stud: 3, stud8: 3, razz: 3, td27: 5, sd27: 5, a5td: 5, a5sd: 5, badugi: 4, fcd: 5 };
+  const NEED = { holdem: 2, omaha8: 4, omaha: 4, o5: 5, o6: 6, o58: 5, stud: 3, stud8: 3, razz: 3, td27: 5, sd27: 5, a5td: 5, a5sd: 5, badugi: 4, fcd: 5 };
 
   function classify(h) {
     const fn = BY_GAME[h.game.key];

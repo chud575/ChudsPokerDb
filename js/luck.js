@@ -99,7 +99,7 @@
   function analyze(h, pov) {
     const E = global.PSEquity;
     const real = h.hero, hero = pov || h.hero, fam = h.game.fam;
-    const key = h.game.key === 'o5' ? 'omaha' : h.game.key;
+    const key = E.evalKey(h.game.key);
     if (!hero || !h.streets.includes('showdown')) return null;
 
     // ---- walk the hand: who folded, who was all-in and when, the draw rounds, visible cards, your bets
@@ -430,7 +430,7 @@
     }
     const two = [0, 0];
     for (const r of recs) {
-      const key = r.game === 'o5' ? 'omaha' : r.game;
+      const key = E.evalKey(r.game);
       const rate = cards => {
         const me = cards.map(E.cid);
         let sum = 0, n = 0;

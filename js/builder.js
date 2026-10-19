@@ -20,6 +20,9 @@
     { key: 'holdem', label: "Hold'em",          fam: 'flop', cards: 2, bet: ['NL', 'FL', 'PL'] },
     { key: 'omaha',  label: 'Omaha',            fam: 'flop', cards: 4, bet: ['PL', 'NL', 'FL'] },
     { key: 'omaha8', label: 'Omaha Hi/Lo',      fam: 'flop', cards: 4, bet: ['FL', 'PL'] },
+    { key: 'o58',    label: 'Big O',            fam: 'flop', cards: 5, bet: ['PL', 'FL'] },
+    { key: 'o5',     label: '5 Card Omaha',     fam: 'flop', cards: 5, bet: ['PL', 'NL'] },
+    { key: 'o6',     label: '6 Card Omaha',     fam: 'flop', cards: 6, bet: ['PL', 'NL'] },
     { key: 'td27',   label: '2-7 Triple Draw',  fam: 'draw', cards: 5, draws: 3, bet: ['FL'] },
     { key: 'sd27',   label: '2-7 Single Draw',  fam: 'draw', cards: 5, draws: 1, bet: ['NL', 'FL'] },
     { key: 'a5td',   label: 'A-5 Triple Draw',  fam: 'draw', cards: 5, draws: 3, bet: ['FL'] },
@@ -38,6 +41,9 @@
       case 'holdem': return "Hold'em " + b;
       case 'omaha':  return 'Omaha ' + b;
       case 'omaha8': return 'Omaha Hi/Lo ' + b;
+      case 'o58':    return '5 Card Omaha Hi/Lo ' + b;
+      case 'o5':     return '5 Card Omaha ' + b;
+      case 'o6':     return '6 Card Omaha ' + b;
       case 'td27':   return 'Triple Draw 2-7 Lowball Limit';
       case 'sd27':   return 'Single Draw 2-7 Lowball ' + b;
       case 'a5td':   return 'Triple Draw A-5 Lowball Limit';

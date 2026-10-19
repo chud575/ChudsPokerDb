@@ -2,7 +2,9 @@
    equity.js — hand evaluators + Monte-Carlo equity for every game family.
 
    Evaluators
-     evalHigh(cards)        best high hand from 5..7 cards        (bigger = better)
+     evalHigh(cards, noWheel) best high hand from 5..7 cards      (bigger = better)
+                            noWheel: 2-7 lowball — aces are high only, so
+                            A-2-3-4-5 is ace-high, not a straight
      lowA5Best(cards)       ace-to-five lowball, pairs count      (smaller = better)
      low8Best(cards)        8-or-better qualifier, else null      (smaller = better)
      badugiEval(cards)      best badugi from 4 cards              (smaller = better)
@@ -32,18 +34,18 @@
       (c == null ? 0 : c + 1)) * 16 + (d == null ? 0 : d + 1)) * 16 + (e == null ? 0 : e + 1);
   }
 
-  function straightFrom(mask) {
+  function straightFrom(mask, noWheel) {
     for (let hi = 12; hi >= 4; hi--) {
       const need = 0x1F << (hi - 4);
       if ((mask & need) === need) return hi;
     }
-    if ((mask & 0x100F) === 0x100F) return 3;   // A-2-3-4-5, five high
+    if (!noWheel && (mask & 0x100F) === 0x100F) return 3;   // A-2-3-4-5, five high
     return -1;
   }
 
   /* ---------- best high hand from 5, 6 or 7 cards ------------------------ */
   const _cnt = new Int8Array(13), _sc = new Int8Array(4), _sm = new Int32Array(4);
-  function evalHigh(cards) {
+  function evalHigh(cards, noWheel) {
     _cnt.fill(0); _sc.fill(0); _sm.fill(0);
     let mask = 0;
     for (let i = 0; i < cards.length; i++) {
@@ -53,7 +55,7 @@
     let best = 0;
     for (let s = 0; s < 4; s++) {
       if (_sc[s] < 5) continue;
-      const sh = straightFrom(_sm[s]);
+      const sh = straightFrom(_sm[s], noWheel);
       if (sh >= 0) { const v = pack(8, sh); if (v > best) best = v; }
       else {
         const rs = [];
@@ -61,7 +63,7 @@
         const v = pack(5, rs[0], rs[1], rs[2], rs[3], rs[4]); if (v > best) best = v;
       }
     }
-    const sh = straightFrom(mask);
+    const sh = straightFrom(mask, noWheel);
     if (sh >= 0) { const v = pack(4, sh); if (v > best) best = v; }
 
     let q = -1, t1 = -1, t2 = -1, p1 = -1, p2 = -1;
@@ -306,10 +308,10 @@
 
   /* strength of one candidate holding: {hi, lo}, either may be null */
   function strengths(key, hand) {
-    switch (key) {
+    switch (evalKey(key)) {
       case 'razz': case 'a5td': case 'a5sd':
                                      return { hi: null, lo: lowPartial(hand) };
-      case 'td27': case 'sd27':      return { hi: null, lo: evalHigh(hand) };
+      case 'td27': case 'sd27':      return { hi: null, lo: evalHigh(hand, true) };
       case 'badugi':                 return { hi: null, lo: badugiEval(hand) };
       case 'stud': case 'fcd':       return { hi: highPartial(hand), lo: null };
       case 'stud8':                  return { hi: highPartial(hand), lo: lowPartial(hand) };
@@ -339,7 +341,12 @@
   const GT = (a, b) => a > b, LT = (a, b) => a < b;
 
   const SPLIT_GAMES = { stud8: 1, omaha8: 1 };
+  /* 5/6-card Omaha variants score exactly like Omaha / Omaha Hi/Lo (omahaHi and
+     omahaLo8 already take any number of hole cards, two of which must play) */
+  const EVAL_KEY = { o5: 'omaha', o6: 'omaha', o58: 'omaha8' };
+  function evalKey(key) { return EVAL_KEY[key] || key; }
   function sharesInto(key, hands, board, out, outHi, outLo) {
+    key = evalKey(key);
     const n = hands.length;
     for (let i = 0; i < n; i++) out[i] = 0;
     _hi.length = n; _lo.length = n;
@@ -350,7 +357,7 @@
         case 'razz':   _lo[i] = lowA5Best(h); useHi = false; useLo = true; break;
         case 'a5td': case 'a5sd':
                        _lo[i] = lowA5_5(h);   useHi = false; useLo = true; break;
-        case 'td27': case 'sd27': _lo[i] = evalHigh(h); useHi = false; useLo = true; break;
+        case 'td27': case 'sd27': _lo[i] = evalHigh(h, true); useHi = false; useLo = true; break;
         case 'badugi': _lo[i] = badugiEval(h); useHi = false; useLo = true; break;
         case 'stud': case 'fcd': _hi[i] = evalHigh(h); break;
         case 'holdem': _hi[i] = evalHigh(h.concat(board)); break;
@@ -643,7 +650,7 @@
       acc.tries = Math.min(900, Math.max(20, Math.ceil(14 / range)));
     }
     // keep each slice near a frame's worth of work whatever the table size
-    const heavy = sp.key === 'omaha' || sp.key === 'omaha8';
+    const heavy = evalKey(sp.key) === 'omaha' || evalKey(sp.key) === 'omaha8';
     const base = (heavy ? 4000 : 16000) / np;
     const SLICE = Math.max(300, Math.round(base * (useRange ? Math.max(range, 0.06) : 1)));
     const tick = () => {
@@ -665,7 +672,7 @@
   }
 
   global.PSEquity = {
-    cid, evalHigh, lowA5Best, lowA5_5, low8Best, badugiEval, omahaHi, omahaLo8,
+    cid, evalHigh, lowA5Best, lowA5_5, low8Best, badugiEval, omahaHi, omahaLo8, evalKey,
     shares, sharesInto, spec, start, remainingDraws, pickDiscards, strengths, calibrate, cutFor,
   };
 })(window);

@@ -16,6 +16,9 @@
     { re: /Razz/i,                       key: 'razz',   label: 'Razz',            fam: 'stud', cards: 7 },
     { re: /Stud\s*Hi\/?-?Lo/i,           key: 'stud8',  label: 'Stud Hi/Lo',      fam: 'stud', cards: 7 },
     { re: /Card\s*Stud/i,                key: 'stud',   label: 'Stud Hi',         fam: 'stud', cards: 7 },
+    // 5/6-card variants first: "5 Card Omaha Hi/Lo" would otherwise match plain Omaha Hi/Lo
+    { re: /(?:(?:5|Five)\s*Card\s*Omaha\s*Hi\/?-?Lo|Big\s*O\b)/i, key: 'o58', label: 'Big O',  fam: 'flop', cards: 5 },
+    { re: /(?:6|Six)\s*Card\s*Omaha/i,  key: 'o6',     label: '6-Card Omaha',    fam: 'flop', cards: 6 },
     { re: /Omaha\s*Hi\/?-?Lo/i,          key: 'omaha8', label: 'Omaha Hi/Lo',     fam: 'flop', cards: 4 },
     { re: /5\s*Card\s*Omaha/i,           key: 'o5',     label: '5-Card Omaha',    fam: 'flop', cards: 5 },
     { re: /Omaha/i,                      key: 'omaha',  label: 'Omaha',           fam: 'flop', cards: 4 },
@@ -103,7 +106,10 @@
 
     /* ---- header ---- */
     const hm = lines[0].match(
-      /^PokerStars (?:Hand|Game) #(\d+):\s+(.*?)\s+-\s+(?:Level\s+([IVXLC]+)\s+)?\(([^)]*)\)\s+-\s+(.+)$/
+      // tournaments: "<game> - Level III (150/300) - <date>"; cash: "<game> ($0.01/$0.02 USD) - <date>"
+      // (the dash before the stakes is optional; the date must start with the year,
+      //  or a mixed game's "(Razz Limit)" would be taken for the stakes)
+      /^PokerStars (?:Hand|Game) #(\d+):\s+(.*?)\s+(?:-\s+(?:Level\s+([IVXLC]+)\s+)?)?\(([^)]*)\)\s+-\s+(\d{4}\/.+)$/
     );
     if (!hm) return null;
     h.id = hm[1];
