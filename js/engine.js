@@ -12,7 +12,7 @@
 
   function clone(p) {
     return {
-      seat: p.seat, name: p.name, stack: p.stack, bet: p.bet, ante: p.ante,
+      seat: p.seat, name: p.name, stack: p.stack, bet: p.bet, ante: p.ante, bounty: p.bounty,
       folded: p.folded, allin: p.allin, inHand: p.inHand, sittingOut: p.sittingOut,
       mucked: p.mucked, shown: p.shown, showDesc: p.showDesc, won: p.won,
       badge: p.badge, last: p.last, isHero: p.isHero, isButton: p.isButton,
@@ -29,7 +29,7 @@
         seat: s.seat, name: s.name, stack: s.startStack, bet: 0, ante: 0,
         folded: false, allin: false, inHand: s.inHand, sittingOut: s.sittingOut,
         mucked: false, shown: false, showDesc: null, won: 0, badge: null, last: null,
-        isHero: s.name === h.hero, isButton: h.buttonSeat === s.seat, pos: null,
+        isHero: s.name === h.hero, isButton: h.buttonSeat === s.seat, pos: null, bounty: s.bounty,
         pitched: null,          // cards thrown on the current draw, shown on the felt
         cards: [],
       };
@@ -262,6 +262,16 @@
         }
         case 'info': {
           if (e.kind === 'capped') desc = 'Betting is capped';
+          break;
+        }
+        case 'bounty': {
+          // knockout money is paid in cash, outside the chips — it changes bounties, not stacks
+          if (p && e.now != null) p.bounty = e.now;
+          const v = P[e.victim];
+          if (v && !e.split) v.bounty = 0;
+          desc = e.player + ' wins ' + (e.amount ? '$' + e.amount.toFixed(2) + ' ' : '') + 'for ' + (e.split ? 'a share of eliminating ' : 'eliminating ') + e.victim +
+            (e.now != null ? ' — bounty now $' + e.now.toFixed(2) : '');
+          kind = 'bounty';
           break;
         }
       }

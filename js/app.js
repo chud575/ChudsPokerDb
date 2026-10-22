@@ -323,6 +323,8 @@
       const sub = el('div', 'sub');
       sub.appendChild(el('span', null, 'Seat ' + p.seat + (p.pos ? ' · ' + p.pos : '')));
       sub.appendChild(el('span', null, p.sittingOut && !p.inHand ? 'sitting out' : (p.mucked ? 'mucked' : '')));
+      // knockout: the bounty on this player's head, as it stands at this step
+      if (p.bounty != null) { const b = el('span', 'bty', '🎯 $' + (+p.bounty).toFixed(2)); b.title = 'Bounty on ' + p.name; sub.appendChild(b); }
       d.appendChild(sub);
 
       if (h.game.fam === 'stud' && p.name === who) d.classList.add('lifted');

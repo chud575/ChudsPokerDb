@@ -106,6 +106,8 @@
     if (!buyOk(t.buyin ? t.buyin.total : 0)) return false;
     if (flt.type === 'main' && t.satellite) return false;
     if (flt.type === 'sat' && !t.satellite) return false;
+    if (flt.type === 'ko' && !t.ko) return false;
+    if (flt.type === 'noko' && t.ko) return false;
     if (flt.result) {
       const o = outcome(t);
       if (flt.result === 'cashed' && o !== 'cashed') return false;
@@ -267,7 +269,7 @@
       const row = el('div', 'toRow' + (t.satellite ? ' sat' : '') + (t.id === current ? ' sel' : ''));
       row.dataset.id = t.id;
       const top = el('div', 'l1');
-      top.appendChild(el('b', null, t.event + (t.satellite ? ' · sat' : '')));
+      top.appendChild(el('b', null, t.event + (t.satellite ? ' · sat' : '') + (t.ko ? ' · KO' : '')));
       if (t.synthetic || t.playMoney) row.title = 'Play money — scored as a $100 buy-in from the payout chart';
       const mine = youIn(t);
       const got = mine.reduce((a, r) => a + r.amount, 0);
@@ -379,7 +381,7 @@
     field('Buy-in $', bw);
 
     const ty = document.createElement('select');
-    [['', 'Tournaments & satellites'], ['main', 'Tournaments only'], ['sat', 'Satellites only']].forEach(x => ty.appendChild(new Option(x[1], x[0])));
+    [['', 'Tournaments & satellites'], ['main', 'Tournaments only'], ['sat', 'Satellites only'], ['ko', 'Knockouts only'], ['noko', 'No knockouts']].forEach(x => ty.appendChild(new Option(x[1], x[0])));
     ty.value = flt.type;
     ty.onchange = () => upd('type', ty.value);
     field('Type', ty);
@@ -832,6 +834,8 @@
       if (line.trim()) pre.push(line.trim());
     }
     pre.forEach((x, i) => head.appendChild(el('div', i === 0 ? 'ttl' : t.tags.includes(x) ? 'tag' : null, x)));
+    if (t.ko) head.insertBefore(el('div', 'tag', 'Knockout — ' + (t.buyin && t.buyin.bounty ? M(t.buyin.bounty, t) + ' of each buy-in goes on players’ heads' : 'bounties paid for eliminations') +
+      ' · other players’ bounty winnings aren’t in the history'), head.children[1] || null);
     doc.appendChild(head);
     if (t.synthetic) doc.appendChild(entriesEditor(t));
     if (t.chop) {
@@ -855,7 +859,7 @@
     const hrs = t.start && t.end ? (t.end - t.start) / 36e5 : 0;
     [t.entries + ' entries' + (re > 0 ? ' (' + re + ' re-entries)' : ''), paid + ' paid',
       hrs ? Math.floor(hrs) + 'h ' + Math.round((hrs % 1) * 60) + 'm' : '',
-      t.buyin && t.buyin.bounty ? 'knockout · ' + M(t.buyin.bounty, t) + ' bounty' : '']
+      t.buyin && t.buyin.bounty ? 'bounty pool about ' + M(t.buyin.bounty * t.entries, t) + ' (' + M(t.buyin.bounty, t) + ' of each buy-in)' : '']
       .filter(Boolean).forEach(x => facts.appendChild(el('span', null, x)));
     const mine = youIn(t);
     const me = new Set(mine.map(r => r.name));
@@ -871,7 +875,9 @@
       const net = got + ticket - cost;
       facts.appendChild(el('span', 'you ' + (net > 0 ? 'up' : 'dn'), 'you: ' + PSTSum.ord(best) +
         (q ? ' · won a seat' : '') + ' · ' + mine.length + ' entr' + (mine.length === 1 ? 'y' : 'ies') +
-        (viaTicket ? ' (' + viaTicket + ' via satellite)' : '') + ' · net ' + M(net, t)));
+        (viaTicket ? ' (' + viaTicket + ' via satellite)' : '') +
+        (t.hero && t.hero.bounties ? ' · ' + t.hero.bounties + ' bount' + (t.hero.bounties === 1 ? 'y' : 'ies') + ' for ' + M(t.hero.bountyWon, t) : '') +
+        ' · net ' + M(net, t)));
     }
     doc.appendChild(facts);
 
@@ -893,6 +899,9 @@
       pcell.textContent = r.qualified ? 'qualified for the target tournament'
         : r.amount ? M(r.amount, t) : (r.note || '');
       if (r.chop != null) { pcell.appendChild(el('span', 'chopTag', 'chop ' + r.chop + '% · listed ' + M(r.official, t))); row.classList.add('chopped'); }
+      // bounties are paid outside the prize pool and only listed for whoever requested the history
+      if (t.ko && t.hero && t.hero.bountyWon && r.name === t.hero.name && r === mine.reduce((b, x) => (!b || x.place < b.place ? x : b), null))
+        pcell.appendChild(el('span', 'chopTag', '+ ' + M(t.hero.bountyWon, t) + ' in bounties (' + t.hero.bounties + ')'));
       row.insertCell().textContent = r.pct != null ? r.pct + '%' : '';
     });
     // the satellites behind this one (or the tournament this satellite fed)

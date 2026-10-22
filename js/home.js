@@ -14,6 +14,7 @@
   let cache = null;          // parsed hands from the library, this session
   let statDb = null;         // player -> stats
   let perfDb = null;         // player -> tournament performance record (from summaries)
+  let perfJob = null, perfGen = 0;   // a build in flight, and which reset it belongs to
   let hero = '';
   let accounts = [];         // your own names, from the summaries you imported
 
@@ -58,11 +59,23 @@
     cache = { recs: recs, hands: hands };
     return cache;
   }
-  const dropCache = () => { cache = null; statDb = null; perfDb = null; };
+  const dropCache = () => { cache = null; statDb = null; perfDb = null; perfJob = null; perfGen++; };
 
-  async function ensurePerf() {
-    if (perfDb) return perfDb;
-    perfDb = {};
+  /* Built once into a local object and handed out whole: two screens asking at the same
+     moment share one build, and a reset (an import, an upgrade) mid-build is never half-seen. */
+  function ensurePerf() {
+    if (perfDb) return Promise.resolve(perfDb);
+    if (perfJob) return perfJob;
+    const gen = perfGen;
+    perfJob = buildPerf().then(db => {
+      if (gen === perfGen) perfDb = db;
+      perfJob = null;
+      return db;
+    }, e => { perfJob = null; throw e; });
+    return perfJob;
+  }
+  async function buildPerf() {
+    const perfDb = {};
     if (!libOk) return perfDb;
     (await PSDB.allPerf()).forEach(p => { perfDb[p.name] = p; });
     accounts = (await PSDB.getMeta('summaryAccounts')) || [];
@@ -126,7 +139,7 @@
     });
     for (const t of ts) {
       const r = tbl.insertRow();
-      r.insertCell().textContent = '#' + t.id + (t.buyin ? ' · ' + t.buyin : '');
+      r.insertCell().textContent = '#' + t.id + (t.buyin ? ' · ' + t.buyin : '') + (t.ko ? ' · KO' : '');
       r.insertCell().textContent = t.last ? new Date(t.last).toLocaleDateString() : '—';
       const comps = Object.keys(t.games).sort((a, b) => t.games[b] - t.games[a]);
       const cell = r.insertCell();
@@ -393,14 +406,14 @@
     const all = await getChops();
     if (chop) all[tid] = chop; else delete all[tid];
     await PSDB.setMeta('chops', all);
-    perfDb = null;
+    perfDb = null; perfJob = null; perfGen++;
   }
 
   async function setPlayEntries(id, n) {
     const over = (await PSDB.getMeta('pmEntries')) || {};
     if (n) over[id] = n; else delete over[id];
     await PSDB.setMeta('pmEntries', over);
-    perfDb = null;
+    perfDb = null; perfJob = null; perfGen++;
   }
 
   /* ---------- tournament summaries (the "Tournament History" email) ---------- */
@@ -426,7 +439,7 @@
       if (parsed.length) await PSDB.addSummaries(parsed);
     }
     await PSDB.setMeta('perfVersion', PSTSum.PERF_VERSION);
-    perfDb = null;
+    perfDb = null; perfJob = null; perfGen++;
   }
 
   async function importSummaries(files) {

@@ -128,6 +128,8 @@
       if (global.PSPlay && cur.buyin && PSPlay.isPlayMoney(cur.buyin.text)) PSPlay.score(cur);
       cur.hero = heroOf(cur, out.requestedBy);
       cur.satellite = cur.tags.some(t => /satellite/i.test(t)) || !!cur.target;
+      // a knockout: the buy-in has a bounty part ($prize/$bounty/$rake), or you collected bounties
+      cur.ko = !!((cur.buyin && cur.buyin.bounty > 0) || (cur.hero && cur.hero.bounties > 0));
       out.tourneys.push(cur);
       cur = null; raw = [];
     };
@@ -206,7 +208,7 @@
       buyin: b.total, entries: entries, cost: entries * b.total,
       best: Math.min(...rows.map(r => r.place)), places: rows.map(r => r.place).sort((a, z) => a - z),
       field: t.entries, won: rows.reduce((a, r) => a + r.amount, 0), ticket: ticket, bounty: bounty,
-      qualified: qualified, tickets: tickets, country: rows[0].country,
+      qualified: qualified, tickets: tickets, country: rows[0].country, ko: !!t.ko,
       // where a satellite's seats go — campaigns() follows these links
       target: t.target ? { id: t.target.id, total: t.target.buyin.total } : null,
     };
@@ -248,7 +250,8 @@
       a.won += got; a.cost += e.cost; a.bounty += e.bounty;
       a.curs[e.cur || '?'] = 1;
       if (e.field > 1) { pctSum += (e.best - 1) / (e.field - 1); pctN++; }
-      const ek = e.event + (e.sat ? ' — satellites' : '');
+      // satellites and knockouts are their own events — a bounty changes what a buy-in buys
+      const ek = e.event + (e.sat ? ' — satellites' : '') + (e.ko ? ' — knockout' : '');
       const g = a.byEvent[ek] || (a.byEvent[ek] = { n: 0, entries: 0, cashes: 0, won: 0, cost: 0, best: null, sat: e.sat });
       g.n++; g.entries += e.entries; if (cashed) g.cashes++; g.won += got; g.cost += e.cost;
       if (g.best == null || e.best < g.best) g.best = e.best;
@@ -405,7 +408,7 @@
   const ord = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
 
   // bump when event records gain fields; the app rebuilds stored records from the summaries
-  const PERF_VERSION = 3;   // 3: play-money summaries scored by the payout chart
+  const PERF_VERSION = 4;   // 3: play-money summaries scored by the payout chart · 4: knockout flag
 
   global.PSTSum = { rtfToText, isSummary, parse, perfFrom, eventFor, aggregate, campaigns, describe, applyChop, money, ord, num, PERF_VERSION };
 })(typeof window !== 'undefined' ? window : globalThis);

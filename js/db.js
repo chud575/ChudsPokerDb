@@ -138,12 +138,13 @@
       if (!h.tourney) continue;
       const t = byT[h.tourney] || (byT[h.tourney] = {
         id: h.tourney, hero: h.hero || '', buyin: h.buyin || '', mixed: h.mixed || '',
-        games: {}, first: Infinity, last: 0, hands: 0, finishes: {}, names: [], maxSeats: 0,
+        games: {}, first: Infinity, last: 0, hands: 0, finishes: {}, names: [], maxSeats: 0, ko: false,
       });
       for (const st of h.seats) if (!t.names.includes(st.name)) t.names.push(st.name);
       if (h.maxSeats > t.maxSeats) t.maxSeats = h.maxSeats;
       t.games[h.game.label] = (t.games[h.game.label] || 0) + 1;
       t.hands++;
+      if (h.ko) t.ko = true;
       const ms = h.dateObj ? h.dateObj.getTime() : 0;
       if (ms && ms < t.first) t.first = ms;
       if (ms > t.last) t.last = ms;
@@ -167,6 +168,7 @@
             rec.last = Math.max(rec.last, old.last || 0);
             for (const g in (old.games || {})) rec.games[g] = Math.max(rec.games[g] || 0, old.games[g]);
             rec.finishes = Object.assign({}, old.finishes || {}, rec.finishes);
+            rec.ko = rec.ko || !!old.ko;
             rec.names = [...new Set((old.names || []).concat(rec.names))];
             rec.maxSeats = Math.max(rec.maxSeats, old.maxSeats || 0);
           }
@@ -180,11 +182,12 @@
   /* tournament rows written before they carried everyone seen (names) and the
      table size: fill those in from the stored hands, once */
   async function upgradeTourneys() {
-    if ((await getMeta('tourneyVersion')) === 2) return false;
+    if ((await getMeta('tourneyVersion')) === 3) return false;          // 3: knockout flag
     const agg = {};
     await scan({}, r => {
       if (!r.tourney) return;
-      const a = agg[r.tourney] || (agg[r.tourney] = { names: new Set(), maxSeats: 0 });
+      const a = agg[r.tourney] || (agg[r.tourney] = { names: new Set(), maxSeats: 0, ko: false });
+      if (!a.ko && / in chips, \$?[\d.,]+ bounty\)/.test(r.raw || '')) a.ko = true;
       (r.players || []).forEach(n => a.names.add(n));
       if (r.maxSeats > a.maxSeats) a.maxSeats = r.maxSeats;
     });
@@ -197,11 +200,12 @@
           if (!rec) return;
           rec.names = [...agg[id].names];
           rec.maxSeats = agg[id].maxSeats;
+          rec.ko = agg[id].ko;
           st.put(rec);
         };
       }
     });
-    await setMeta('tourneyVersion', 2);
+    await setMeta('tourneyVersion', 3);
     return true;
   }
 

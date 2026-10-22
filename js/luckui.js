@@ -638,6 +638,12 @@
       kpi('played, 4 or fewer · ' + dS + ' hands', pc(vS / dS), '', 'Short-handed play — the end of a tournament, where playing far more hands is right');
     }
     kpi('pots won', String(wonPots));
+    // knockouts: bounties won in these hands — cash, on top of the chips
+    if (mine.some(h => h.ko)) {
+      let n = 0, amt = 0;
+      mine.forEach(h => h.events.forEach(e => { if (e.t === 'bounty' && e.player === who) { n += e.split ? 0.5 : 1; amt += e.amount || 0; } }));
+      kpi('bounties won in these hands', n ? n + ' · $' + amt.toFixed(2) : '0', n ? 'up' : '', 'Knockout money, paid in cash outside the chips — not part of the BB figures');
+    }
     kpi('showdowns', res.showdowns + (s.n ? ' · won ' + (s.ai.got + s.rv.got).toFixed(1) : ''));
     kpi('without showdown, BB', sgn(res.netQuiet), cls(res.netQuiet));
     kpi('at showdown, BB', sgn(res.netShown), cls(res.netShown));

@@ -801,3 +801,6 @@ body.view-draws #viewDraws{display:flex;flex-direction:column;height:calc(100vh 
 .drCond .dim{font-size:11.5px}
 .drCond .btn,.drBox>.btn{padding:2px 9px;font-size:11px}
 body.blackbg .drBox{background:#0d0d0d;border-color:#242424}
+
+/* knockout bounty on a seat */
+.seat .sub .bty{color:#ffd27a;font-variant-numeric:tabular-nums}

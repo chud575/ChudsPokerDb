@@ -153,11 +153,13 @@
 
     /* ---- seats ---- */
     for (; i < lines.length; i++) {
-      const sm = lines[i].match(/^Seat (\d+): (.*) \(\$?([\d.,]+) in chips(?:,\s*\$?[\d.,]+ bounty)?\)(.*)$/);
+      // knockout tournaments add the player's bounty: "(6910 in chips, $20.95 bounty)"
+      const sm = lines[i].match(/^Seat (\d+): (.*) \(\$?([\d.,]+) in chips(?:,\s*\$?([\d.,]+) bounty)?\)(.*)$/);
       if (!sm) break;
       const p = {
         seat: +sm[1], name: sm[2], startStack: num(sm[3]),
-        sittingOut: /sitting out/i.test(sm[4] || ''), inHand: false,
+        bounty: sm[4] != null ? num(sm[4]) : null,
+        sittingOut: /sitting out/i.test(sm[5] || ''), inHand: false,
       };
       h.seats.push(p); h.players[p.name] = p;
     }
@@ -298,6 +300,13 @@
           push({ t: 'finish', player: who, place: fm[1] ? +fm[1] : null, amount: num(fm[2]) }, L);
         else if ((fm = rest.match(/^wins the tournament and receives \$?([\d.,]+)/)))
           push({ t: 'finish', player: who, place: 1, amount: num(fm[1]) }, L);
+        // knockouts — progressive: "wins $10.48 for eliminating X and their own bounty increases by $10.47 to $31.42"
+        //   (or "for splitting the elimination of X …"); classic: "wins the $5 bounty for eliminating X"
+        else if ((fm = rest.match(/^wins \$?([\d.,]+) for (eliminating|splitting the elimination of) (.+?)(?: and their own bounty increases by \$?([\d.,]+) to \$?([\d.,]+))?\s*$/)))
+          push({ t: 'bounty', player: who, amount: num(fm[1]), victim: fm[3], split: fm[2] !== 'eliminating',
+            raise: fm[4] != null ? num(fm[4]) : 0, now: fm[5] != null ? num(fm[5]) : null }, L);
+        else if ((fm = rest.match(/^wins the \$?([\d.,]+) bounty for (eliminating|splitting the elimination of) (.+?)\s*$/)))
+          push({ t: 'bounty', player: who, amount: num(fm[1]), victim: fm[3], split: fm[2] !== 'eliminating', raise: 0, now: null }, L);
         else push({ t: 'info', player: who, kind: 'status', text: rest }, L);
         continue;
       }
@@ -317,6 +326,8 @@
     if (h.hero && h.players[h.hero]) h.heroSeat = h.players[h.hero].seat;
 
     // everything the observer ever learns about a hand (shown, or mucked-but-listed)
+    // a knockout tournament: bounties on the seats, or a bounty won in the hand
+    h.ko = h.seats.some(z => z.bounty != null) || ev.some(e => e.t === 'bounty');
     h.revealed = {};
     for (const e of ev) if (e.t === 'show' && e.cards && e.cards.length) h.revealed[e.player] = e.cards;
     for (const r of h.summary) if (r.name && r.cards) h.revealed[r.name] = r.cards;

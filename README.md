@@ -685,6 +685,23 @@ How the numbers are counted:
   players' knockout winnings are not in their records.
 * A villain's record covers only the tournaments you were in.
 
+### Knockout (bounty) tournaments
+
+A tournament whose buy-in has three parts — `$20.90/$21.00/$2.10` is prize pool / bounty / fee — or
+where you collected bounties is a **knockout**, and says so everywhere: **· KO** in the tournament
+list and the Library, a *Knockout* line at the top of its page, the bounty pool (bounty part × entries)
+among its facts, your bounties beside your prize in the standings (*+ $88.60 in bounties (6)*) and in
+your line (*6 bounties for $88.60*). Knockouts are their own event in the Overview's event table, so
+they don't blur your results in the same game without bounties, and the Type filter can show
+**Knockouts only** or **No knockouts**. Bounties count in your winnings, net and ROI. The history
+email lists bounties only for the account that requested it, so other players' records leave them out.
+
+In hand histories the seat lines carry each player's bounty — shown under their stack in the
+replayer (🎯 $20.95) and updated as it grows — and "wins $10.48 for eliminating X and their own
+bounty increases by $10.47 to $31.42" (or the classic "wins the $5 bounty for eliminating X") is read
+as a knockout and shown as its own step. A tournament's summary box lists the bounties you won in its
+hands. Bounty money is cash outside the chips, so it is never mixed into chip or BB figures.
+
 ### Chops
 
 **Chop** on a tournament's page records a deal. Tick everyone who was in it and give each one's share
