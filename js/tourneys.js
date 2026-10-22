@@ -276,10 +276,20 @@
       const q = mine.some(r => r.qualified);
       const best = mine.length ? Math.min(...mine.map(r => r.place)) : null;
       const bub = got || q ? '' : bubbleOf(t, best);
-      const fin = el('span', 'fin ' + (got || q ? 'up' : bub),
-        best ? PSTSum.ord(best) + (q ? ' · seat' : got ? ' · ' + M(got, t) : '') : (t.synthetic ? 'finish unknown' : ''));
-      if (bub) fin.title = bub === 'stone' ? 'Stone bubble — first one out of the money'
+      // the place (coloured for a cash or a bubble), then what the tournament netted you
+      const fin = el('span', 'fin');
+      const pl = el('span', got || q ? 'up' : bub, best ? PSTSum.ord(best) + (q ? ' · seat' : '') : (t.synthetic ? 'finish unknown' : ''));
+      if (bub) pl.title = bub === 'stone' ? 'Stone bubble — first one out of the money'
         : 'Soft bubble — ' + (best - paidCount(t)) + ' places from the money';
+      fin.appendChild(pl);
+      const nt = netOf(t);
+      if (best && nt) {
+        fin.appendChild(document.createTextNode(' · '));
+        fin.appendChild(el('span', nt.net > 0 ? 'up' : nt.net < 0 ? 'dn' : '', (nt.net > 0 ? '+' : '') + M(nt.net, t)));
+        fin.title = 'Net ' + M(nt.net, t) + ': ' + (nt.won ? 'prize ' + M(nt.won, t) : 'no prize') + (nt.bounty ? ' + bounties ' + M(nt.bounty, t) : '') +
+          (nt.ticket ? ' + seat worth ' + M(nt.ticket, t) : '') + ' − buy-ins ' + M(nt.cost, t) + (nt.entries > 1 ? ' (' + nt.entries + ' entries)' : '') +
+          (pl.title ? ' · ' + pl.title : '');
+      }
       top.appendChild(fin);
       row.appendChild(top);
       const l2 = el('div', 'l2');
@@ -296,6 +306,16 @@
   /* the bubble: paid = a prize or a seat.  Stone = first one out; soft = out
      within the next 10% of the paid places (at least the next two; the next
      one when fewer than ten are paid) and still in the top half of the field. */
+  /* what one tournament netted the chosen account: prizes, bounties and any seat won, less every
+     buy-in (re-entries included) — the same record the Overview's totals add up */
+  function netOf(t) {
+    const perf = PSHome.perfCache && PSHome.perfCache();
+    const e = perf && perf[acct] && perf[acct].events[t.id];
+    if (!e) return null;
+    const got = e.won + (e.ticket || 0) + (e.bounty || 0);
+    return { net: got - e.cost, won: e.won, bounty: e.bounty || 0, ticket: e.ticket || 0, cost: e.cost, entries: e.entries };
+  }
+
   const paidCount = t => t.playMoney || t.synthetic ? t.paid : t.results.filter(r => r.amount > 0 || r.qualified).length;
   function bubbleOf(t, place) {
     const paid = paidCount(t);

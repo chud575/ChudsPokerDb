@@ -408,7 +408,7 @@
   const ord = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
 
   // bump when event records gain fields; the app rebuilds stored records from the summaries
-  const PERF_VERSION = 4;   // 3: play-money summaries scored by the payout chart · 4: knockout flag
+  const PERF_VERSION = 5;   // 3: play-money summaries scored by the payout chart · 4: knockout flag · 5: pasted histories claimed by your account
 
   global.PSTSum = { rtfToText, isSummary, parse, perfFrom, eventFor, aggregate, campaigns, describe, applyChop, money, ord, num, PERF_VERSION };
 })(typeof window !== 'undefined' ? window : globalThis);

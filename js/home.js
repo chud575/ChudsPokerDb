@@ -426,6 +426,19 @@
 
   /* performance records are derived data: when their shape changes, rebuild
      them all from the stored summaries (satellite links arrived in v2) */
+  /* A history pasted without its "requested by" line has no owner, so the "You collected N bounties"
+     lines would belong to nobody. Give each such tournament to whichever of your accounts is in it. */
+  async function claimHero(tourneys) {
+    const mine = new Set(((await PSDB.getMeta('summaryAccounts')) || []).concat(Object.keys(await PSDB.heroes())));
+    const claimed = [];
+    for (const t of tourneys) {
+      if (t.hero && t.hero.name) continue;
+      const n = [...mine].find(x => t.results.some(r => r.name === x));
+      if (n) { t.hero = Object.assign({}, t.hero || {}, { name: n }); claimed.push(n); }
+    }
+    return claimed;
+  }
+
   async function upgradePerf() {
     if ((await PSDB.getMeta('perfVersion')) === PSTSum.PERF_VERSION) return;
     // re-read every tournament from its own text, so scoring changes reach old imports
@@ -436,6 +449,7 @@
     });
     for (const who in byWho) {
       const parsed = PSTSum.parse('Tournament History for your tournaments requested by ' + who + '\n\n' + byWho[who].join('\n\n'), 'library').tourneys;
+      if (!who) await claimHero(parsed);
       if (parsed.length) await PSDB.addSummaries(parsed);
     }
     await PSDB.setMeta('perfVersion', PSTSum.PERF_VERSION);
@@ -453,6 +467,7 @@
       } catch (e) { toast('Could not read ' + f.name + ': ' + e.message, 'bad'); }
     }
     if (!tourneys.length) { toast('No tournaments found in ' + files.map(f => f.name).join(', '), 'bad'); return; }
+    who = who.concat(await claimHero(tourneys));
     let res;
     try {
       res = await PSDB.addSummaries(tourneys);

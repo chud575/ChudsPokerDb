@@ -804,3 +804,8 @@ body.blackbg .drBox{background:#0d0d0d;border-color:#242424}
 
 /* knockout bounty on a seat */
 .seat .sub .bty{color:#ffd27a;font-variant-numeric:tabular-nums}
+/* the tournament list: place and net coloured separately */
+.toRow .fin .up{color:var(--good)}
+.toRow .fin .dn{color:#ff8a8a}
+.toRow .fin .stone{color:#ff3b3b;font-weight:700}
+.toRow .fin .soft{color:#e6d38a}
