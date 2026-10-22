@@ -580,25 +580,164 @@
     try { name = localStorage.getItem(ME_KEY) || ''; } catch (e) { }
     if (!names.includes(name)) name = hero || names[0] || (PSApp.hand() && PSApp.hand().hero) || '';
     sel.value = name;
-    if (!name) { $('#meBody').innerHTML = '<div class="empty">Nothing about you in the library yet.</div>'; return; }
+    if (!name) { $('#meFlt').innerHTML = ''; $('#meOut').innerHTML = '<div class="empty">Nothing about you in the library yet.</div>'; return; }
     await openPlayer(name, true);
+  }
+
+  /* ---------- Your numbers: advanced filters ----------
+     Tournament-wide ones (when, game, buy-in, knockout) narrow both the hands and the tournament
+     results; hand-by-hand ones (table size, your stack, level) narrow the hands only. */
+  const MF_KEY = 'psreplayer.meFilter';
+  const MF0 = { range: 'all', from: '', to: '', game: '', minBuy: '', maxBuy: '', ko: '', size: '', stack: '', level: '' };
+  let mf = Object.assign({}, MF0);
+  try { Object.assign(mf, JSON.parse(localStorage.getItem(MF_KEY)) || {}); } catch (e) { }
+  const mfOn = () => Object.keys(MF0).some(k => mf[k] !== MF0[k]);
+  const FAM = {
+    stud: ['razz', 'stud', 'stud8'], draw: ['badugi', 'td27', 'sd27', 'a5td', 'a5sd', 'fcd', 'badeucy', 'badacey'],
+    omaha: ['omaha8', 'omaha', 'o5', 'o6', 'bigo'], holdem: ['holdem'],
+  };
+  const FAM_NAME = { stud: 'Stud games', draw: 'Draw games', omaha: 'Omaha games', holdem: 'Hold’em', mixed: 'Mixed events (HORSE, 8-Game…)' };
+  function mfWindow() {
+    const now = new Date();
+    if (mf.range === 'all') return [-Infinity, Infinity];
+    if (mf.range === 'custom') {
+      const d = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; };
+      const f = d(mf.from), t = d(mf.to);
+      return [f ? f.getTime() : -Infinity, t ? t.getTime() + 864e5 - 1 : Infinity];
+    }
+    if (mf.range === 'month') return [new Date(now.getFullYear(), now.getMonth(), 1).getTime(), Infinity];
+    if (mf.range === 'year') return [new Date(now.getFullYear(), 0, 1).getTime(), Infinity];
+    return [new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() - (+mf.range - 1) * 864e5, Infinity];
+  }
+  const buyOk = v => (mf.minBuy === '' || v >= +mf.minBuy) && (mf.maxBuy === '' || v <= +mf.maxBuy);
+  const gameOk = (key, mixed) => {
+    if (!mf.game) return true;
+    if (mf.game === 'fam:mixed') return !!mixed;
+    if (mf.game.startsWith('fam:')) return (FAM[mf.game.slice(4)] || []).includes(key);
+    return key === mf.game;
+  };
+  // a hand's buy-in: from the tournament's results when there are any, else its header; play money is $100
+  function handBuyin(h, sums) {
+    const s = sums[h.tourney];
+    if (s && s.buyin) return s.buyin.total;
+    const b = String(h.buyin || '');
+    if (!b) return null;
+    if (!/[$€£]/.test(b)) return 100;
+    return b.split('+').reduce((a, x) => a + (parseFloat(x.replace(/[^\d.]/g, '')) || 0), 0);
+  }
+  function passHand(h, name, sums) {
+    const [a, b] = mfWindow(), t = h.dateObj ? h.dateObj.getTime() : 0;
+    if (t < a || t > b) return false;
+    if (!gameOk(h.game.key, h.mixed)) return false;
+    if (mf.minBuy !== '' || mf.maxBuy !== '') { const v = handBuyin(h, sums); if (v == null || !buyOk(v)) return false; }
+    if (mf.ko === 'ko' && !h.ko) return false;
+    if (mf.ko === 'noko' && h.ko) return false;
+    const n = h.seats.filter(z => z.inHand).length;
+    if (mf.size === 'full' && n <= 4) return false;
+    if (mf.size === 'short' && (n > 4 || n < 3)) return false;
+    if (mf.size === 'hu' && n !== 2) return false;
+    if (mf.stack) {
+      const seat = h.seats.find(z => z.name === name), bb = h.bb || 1, st = seat ? seat.startStack / bb : 0;
+      const [lo, hi] = { a: [0, 10], b: [10, 25], c: [25, 50], d: [50, Infinity] }[mf.stack];
+      if (st < lo || st >= hi) return false;
+    }
+    if (mf.level) {
+      const L = h.level || 0;
+      if (mf.level === 'early' && L > 3) return false;
+      if (mf.level === 'middle' && (L < 4 || L > 6)) return false;
+      if (mf.level === 'late' && L < 7) return false;
+    }
+    return true;
+  }
+  function passEvent(e) {
+    const [a, b] = mfWindow();
+    if (e.date < a || e.date > b) return false;
+    const k = PSParser.classifyGame(e.event).key;
+    if (!gameOk(k, k === 'unknown' || /HORSE|8-Game|Mixed|TORSE|HOSE/i.test(e.event))) return false;
+    if (!buyOk(e.buyin)) return false;
+    if (mf.ko === 'ko' && !e.ko) return false;
+    if (mf.ko === 'noko' && e.ko) return false;
+    return true;
+  }
+
+  function meFilterBar(games, counts) {
+    const box = $('#meFlt');
+    box.innerHTML = '';
+    const bar = el('div', 'fltBar');
+    const field = (label, ctl) => { const w = el('label', 'fld'); w.appendChild(el('span', null, label)); w.appendChild(ctl); bar.appendChild(w); return ctl; };
+    const sel = (k, opts) => { const s = document.createElement('select'); opts.forEach(([v, t]) => s.appendChild(new Option(t, v))); s.value = mf[k]; s.onchange = () => set(k, s.value); return s; };
+    const set = (k, v) => { mf[k] = v; try { localStorage.setItem(MF_KEY, JSON.stringify(mf)); } catch (e) { } openPlayer($('#meWho').value, true); };
+    field('When', sel('range', [['all', 'All time'], ['7', 'Last 7 days'], ['30', 'Last 30 days'], ['90', 'Last 90 days'], ['365', 'Last 12 months'], ['month', 'This month'], ['year', 'This year'], ['custom', 'Custom dates']]));
+    if (mf.range === 'custom') {
+      ['from', 'to'].forEach(k => { const i = document.createElement('input'); i.type = 'date'; i.value = mf[k]; i.onchange = () => set(k, i.value); field(k === 'from' ? 'From' : 'To', i); });
+    }
+    const g = document.createElement('select');
+    g.appendChild(new Option('All games', ''));
+    const og1 = document.createElement('optgroup'); og1.label = 'Game type';
+    Object.keys(FAM_NAME).forEach(f => og1.appendChild(new Option(FAM_NAME[f], 'fam:' + f)));
+    g.appendChild(og1);
+    const og2 = document.createElement('optgroup'); og2.label = 'Game';
+    Object.keys(games).sort((x, y) => games[x].localeCompare(games[y])).forEach(k => og2.appendChild(new Option(games[k], k)));
+    g.appendChild(og2);
+    g.value = mf.game; g.onchange = () => set('game', g.value);
+    field('Game', g);
+    const pair = el('span', 'pair');
+    ['minBuy', 'maxBuy'].forEach((k, i) => {
+      const n = document.createElement('input'); n.type = 'number'; n.min = 0; n.step = 'any'; n.placeholder = i ? 'max' : 'min'; n.value = mf[k];
+      n.onchange = () => set(k, n.value);
+      pair.appendChild(n); if (!i) pair.appendChild(el('i', null, '–'));
+    });
+    field('Buy-in $', pair);
+    field('Knockouts', sel('ko', [['', 'Any'], ['ko', 'Knockouts only'], ['noko', 'No knockouts']]));
+    field('Table size', sel('size', [['', 'Any'], ['full', '5+ players'], ['short', '3–4 players'], ['hu', 'Heads-up']]));
+    field('Your stack', sel('stack', [['', 'Any'], ['a', 'under 10 BB'], ['b', '10–25 BB'], ['c', '25–50 BB'], ['d', '50+ BB']]));
+    field('Level', sel('level', [['', 'Any'], ['early', 'Early (I–III)'], ['middle', 'Middle (IV–VI)'], ['late', 'Late (VII+)']]));
+    if (mfOn()) { const c = el('button', 'btn', 'Clear filters'); c.onclick = () => { mf = Object.assign({}, MF0); set('range', 'all'); }; bar.appendChild(c); }
+    box.appendChild(bar);
+    if (counts) box.appendChild(el('div', 'dim trNote', 'Showing ' + counts.h.toLocaleString() + ' of ' + counts.H.toLocaleString() + ' hands' +
+      (counts.T ? ' · ' + counts.t + ' of ' + counts.T + ' tournaments' : '') +
+      (mf.size || mf.stack || mf.level ? ' — table size, stack and level narrow the hands only; tournament results have no hand-by-hand detail' : '')));
   }
 
   async function openPlayer(name, isMe) {
     if (!name) return;
-    const db = await buildStats();
+    let db = await buildStats();
     const pf = await ensurePerf();
-    const p = db[name];
-    const pane = isMe ? $('#meBody') : $('#plDetail');
+    let p = db[name];
+    const pane = isMe ? $('#meOut') : $('#plDetail');
     pane.innerHTML = '';
+    let recOverride = null, handsFor = null;
+    if (isMe) {
+      // the filters: the hands and tournament results that feed everything below
+      const lib = await ensureLibrary();
+      const sums = {};
+      (await PSDB.allSummaries()).forEach(s => { sums[s.id] = s; });
+      const all = lib.hands.filter(h => h.seats.some(z => z.name === name && z.inHand));
+      const games = {};
+      all.forEach(h => { games[h.game.key] = h.game.label; });
+      const hs = mfOn() ? all.filter(h => passHand(h, name, sums)) : all;
+      handsFor = hs;
+      p = mfOn() ? PSStats.collect(hs)[name] : p;
+      const rec = pf[name];
+      if (rec && mfOn()) {
+        const ev = {};
+        for (const id in rec.events) if (passEvent(rec.events[id])) ev[id] = rec.events[id];
+        recOverride = Object.assign({}, rec, { events: ev });
+      }
+      const T = rec ? Object.keys(rec.events).length : 0;
+      meFilterBar(games, { h: hs.length, H: all.length, t: recOverride ? Object.keys(recOverride.events).length : T, T: T });
+      if (mfOn() && !hs.length && (!recOverride || !Object.keys(recOverride.events).length)) {
+        pane.appendChild(el('div', 'empty', 'Nothing matches these filters.')); return;
+      }
+    }
     const isYou = n => n === hero || accounts.includes(n);
 
     // (Your numbers shows one profile at a time — the pull-down above picks which)
     if (!p && !pf[name]) { pane.appendChild(el('div', 'empty', 'Nothing on ' + name + ' in the library.')); return; }
-    if (!p) { renderResults(pane, name, isMe); return; }
+    if (!p) { renderResults(pane, name, isMe, false, recOverride); return; }
 
     pane.appendChild(el('h3', null, name + (isMe || isYou(name) ? '  (you)' : '')));
-    if (pf[name]) renderResults(pane, name, isMe, true);
+    if (pf[name] && (!recOverride || Object.keys(recOverride.events).length)) renderResults(pane, name, isMe, true, recOverride);
 
     // tournaments
     const ts = PSStats.tourneySummary(p);
@@ -658,7 +797,7 @@
     const list = el('div', 'plHands');
     pane.appendChild(list);
     const lib = await ensureLibrary();
-    const mine = lib.hands.filter(h => h.seats.some(s => s.name === name));
+    const mine = handsFor || lib.hands.filter(h => h.seats.some(s => s.name === name));
     list.appendChild(el('div', 'plMeta', mine.length + ' hands — click one to open it in the replayer'));
     mine.slice(0, 300).forEach(h => {
       const net = PSEngine.netFor(h)[name] || 0;
@@ -674,8 +813,8 @@
 
   /* A player's performance record, from the tournament summaries: totals,
      then one line per event type, then every tournament (click to open it). */
-  function renderResults(pane, name, isMe, noTitle) {
-    const rec = perfDb && perfDb[name];
+  function renderResults(pane, name, isMe, noTitle, recOverride) {
+    const rec = recOverride || (perfDb && perfDb[name]);
     if (!rec) return;
     const a = PSTSum.aggregate(rec);
     const M = v => PSTSum.money(v, a.cur);

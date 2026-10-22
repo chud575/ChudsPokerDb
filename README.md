@@ -11,7 +11,7 @@ The app opens on a menu, not a file dialog:
   filled from the library every time you open the app.
 * **Replay hands** — the step-through replayer, markup and teaching tools.
 * **Player database** — statistics on every player the library has seen, kept separate by game.
-* **Your numbers** — the same breakdown for you.
+* **Your numbers** — the same breakdown for you. Pick any of your profiles from the pull-down, and narrow everything with the advanced filters: when (last 7/30/90 days, 12 months, this month/year, custom dates), game or game type (stud, draw, Omaha, Hold'em, mixed events), buy-in range and knockouts — these narrow both your hands and your tournament results — plus table size (5+, 3–4, heads-up), your stack in big blinds and blind level, which narrow the hands only. Filters are remembered.
 * **Tournament Overview** — final standings of every tournament in your PokerStars "Tournament
   History" emails, and your record across them.
 * **Starting hands** — every hand you were dealt, how often you play it and win with it, and whether it pays.
