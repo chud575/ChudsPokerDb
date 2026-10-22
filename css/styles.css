@@ -809,3 +809,4 @@ body.blackbg .drBox{background:#0d0d0d;border-color:#242424}
 .toRow .fin .dn{color:#ff8a8a}
 .toRow .fin .stone{color:#ff3b3b;font-weight:700}
 .toRow .fin .soft{color:#e6d38a}
+#meWho{background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:4px 7px;color:var(--fg);font:inherit;font-size:12px}

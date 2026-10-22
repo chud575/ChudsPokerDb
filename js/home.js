@@ -558,9 +558,28 @@
     if (names.length > 400) box.appendChild(el('div', 'plMeta', 'showing 400 — search to narrow'));
   }
 
+  /* every profile of yours — each hero in the hand histories and each account that requested
+     tournament results — in a pull-down; the one picked is remembered */
+  const ME_KEY = 'psreplayer.meProfile';
   async function openMe() {
-    await ensurePerf();
-    const name = hero || accounts[0] || (PSApp.hand() && PSApp.hand().hero) || '';
+    const pf = await ensurePerf();
+    const hs = libOk ? await PSDB.heroes() : {};
+    const names = [...new Set(Object.keys(hs).concat(accounts))];
+    const tours = n => pf[n] ? Object.keys(pf[n].events).length : 0;
+    names.sort((a, b) => (hs[b] || 0) - (hs[a] || 0) || tours(b) - tours(a));
+    const sel = $('#meWho');
+    sel.innerHTML = '';
+    names.forEach(n => {
+      const bits = [];
+      if (hs[n]) bits.push(hs[n].toLocaleString() + ' hands');
+      if (tours(n)) bits.push(tours(n) + ' tournaments');
+      sel.appendChild(new Option(n + (bits.length ? ' — ' + bits.join(' · ') : ''), n));
+    });
+    sel.style.display = names.length > 1 ? '' : 'none';
+    let name = '';
+    try { name = localStorage.getItem(ME_KEY) || ''; } catch (e) { }
+    if (!names.includes(name)) name = hero || names[0] || (PSApp.hand() && PSApp.hand().hero) || '';
+    sel.value = name;
     if (!name) { $('#meBody').innerHTML = '<div class="empty">Nothing about you in the library yet.</div>'; return; }
     await openPlayer(name, true);
   }
@@ -574,19 +593,11 @@
     pane.innerHTML = '';
     const isYou = n => n === hero || accounts.includes(n);
 
-    if (isMe) {
-      // every account of yours: hand-history hero and the summary requester(s)
-      const others = accounts.filter(a => a !== name && pf[a]);
-      if (!p && !pf[name] && !others.length) {
-        pane.appendChild(el('div', 'empty', 'Nothing about you in the library yet.')); return;
-      }
-      if (!p && !pf[name]) { others.forEach(a => renderResults(pane, a, true)); return; }
-      others.forEach(a => renderResults(pane, a, true));
-    }
+    // (Your numbers shows one profile at a time — the pull-down above picks which)
     if (!p && !pf[name]) { pane.appendChild(el('div', 'empty', 'Nothing on ' + name + ' in the library.')); return; }
     if (!p) { renderResults(pane, name, isMe); return; }
 
-    pane.appendChild(el('h3', null, name + (isYou(name) ? '  (you)' : '')));
+    pane.appendChild(el('h3', null, name + (isMe || isYou(name) ? '  (you)' : '')));
     if (pf[name]) renderResults(pane, name, isMe, true);
 
     // tournaments
@@ -745,6 +756,7 @@
     $('#plSearch').oninput = () => refreshPlayers();
     $('#plGame').onchange = () => refreshPlayers();
     $('#plSort').onchange = () => refreshPlayers();
+    $('#meWho').onchange = e => { try { localStorage.setItem(ME_KEY, e.target.value); } catch (x) { } openPlayer(e.target.value, true); };
     $('#fTourney').onchange = e => { const v = e.target.value; if (v === 'library') openLibrary(); else if (v) openTourney(v); };
     $('#tourBtn').onclick = resultsForCurrent;
     $('#libBackup').onclick = backup;
