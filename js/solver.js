@@ -10,6 +10,12 @@
        adapter), and for a limit level "(100/200)" the small bet is 100.
      · hero_cards must be in dealt order — slots 0 and 1 are the hole cards,
        the rest are the upcards — because the adapter exposes them that way.
+
+   Stud games with more than one villain: the solvers are heads-up, so the
+   spot is read against each villain on their own (advisor_multi).  For
+   villain A, every other upcard on the table — the other villains' and any
+   folded ones — is dead, out of the deck; the solver then answers as if you
+   were heads-up with A.  One answer per villain.
    =========================================================================== */
 (function (global) {
   'use strict';
@@ -28,13 +34,18 @@
     holdem: { id: 'holdem',  fam: 'flop', label: "Hold'em" },
     // omaha8 is registered in the solver but its advisor returns HTTP 500 for
     // every payload shape tried, so it is left out until that is fixed.
+    // draw games: the Triple Draw trainer's brains (TD27Web), 2-6 players natively
+    td27:   { id: 0, fam: 'draw', label: '2-7 Triple Draw' },
+    a5td:   { id: 1, fam: 'draw', label: 'A-5 Triple Draw' },
+    badugi: { id: 2, fam: 'draw', label: 'Badugi' },
   };
   const STREET_IX = { preflop: 0, flop: 1, turn: 2, river: 3 };
 
   const url = () => { try { return localStorage.getItem(KEY) || DEF; } catch (e) { return DEF; } };
   const setUrl = u => { try { localStorage.setItem(KEY, u.replace(/\/+$/, '')); } catch (e) { } };
 
-  async function ping() {
+  async function ping(fam) {
+    if (fam === 'draw') return PSDrawSolver.ping();
     const t0 = Date.now();
     try {
       const r = await fetch(url() + '/api/game/razz/advisor', {
@@ -96,6 +107,7 @@
     const g = support(hand.game.key);
     const out = [];
     if (!g) return out;
+    if (g.fam === 'draw') return PSDrawSolver.spots(hand, steps, heroName || hand.hero, g);
     const hero = heroName || hand.hero;
     if (!hero) return out;
     const sb = +hand.sb || 0;
@@ -115,6 +127,9 @@
 
       const cards = h.cards.filter(c => c.c).map(c => c.c);
       const live = pre.players.filter(p => p.inHand && !p.folded && p.name !== hero);
+      const ups = p => p.cards.filter(c => c.c && c.up).map(c => c.c);
+      // folded players' upcards are out of the deck for everyone still in
+      const dead = [].concat(...pre.players.filter(p => p.inHand && p.folded && p.name !== hero).map(ups));
       const maxBet = pre.players.reduce((m, p) => Math.max(m, p.bet), 0);
       const potChips = pre.pot + pre.players.reduce((t, p) => t + p.bet, 0);
 
@@ -122,7 +137,9 @@
         step: s.i, ei: i, street: pre.street, streetLabel: pre.streetLabel,
         game: g, hero: hero,
         heroCards: cards,
-        oppBoards: live.map(p => p.cards.filter(c => c.c && c.up).map(c => c.c)),
+        oppBoards: live.map(ups),
+        oppNames: live.map(p => p.name),
+        dead: dead,
         opponents: live.length,
         toCall: Math.max(0, maxBet - h.bet) / sb,
         pot: potChips / sb,
@@ -140,18 +157,16 @@
   function valid(s) {
     if (s.game.fam === 'stud') {
       if (s.heroCards.length < 3 || s.heroCards.length > 7) return false;
-      // the stud adapters want exactly one villain, with their upcards
-      if (s.opponents !== 1) return false;
+      // every villain still in, with their upcards (read one at a time when there are several)
+      if (s.opponents < 1) return false;
       const want = Math.min(s.heroCards.length, 6) - 2;
-      if ((s.oppBoards[0] || []).length !== want) return false;
-      return true;
+      return s.oppBoards.every(b => b.length === want);
     }
     if (s.game.fam === 'flop') return s.heroCards.length === 2 && STREET_IX[s.street] != null;
     return false;
   }
   function reasonInvalid(s) {
-    if (s.game.fam === 'stud' && s.opponents !== 1)
-      return s.opponents + '-way — the stud models are heads-up only';
+    if (s.game.fam === 'stud' && s.opponents < 1) return 'nobody left to play';
     if (s.game.fam === 'stud' && s.heroCards.length < 3) return 'cards not dealt yet';
     if (s.game.fam === 'stud') return "villain's upcards incomplete";
     return 'not a spot the solver takes';
@@ -174,8 +189,46 @@
     return p;
   }
 
+  /* stud, any number of villains: one heads-up answer per villain, the others' cards dead */
+  let multiOk = true;     // false once the server turns out to predate advisor_multi
+  async function adviseMulti(s) {
+    const r = await fetch(url() + '/api/game/' + s.game.id + '/advisor_multi', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        hero_cards: s.heroCards, street: s.heroCards.length,
+        to_call: +s.toCall.toFixed(3), pot: +s.pot.toFixed(3),
+        opponent_boards: s.oppBoards, opponent_names: s.oppNames, dead_cards: s.dead,
+      }),
+    });
+    if (r.status === 404) { multiOk = false; return null; }
+    if (!r.ok) return { error: 'HTTP ' + r.status };
+    const j = await r.json();
+    if (j.error) return { error: j.error };
+    const per = (j.per_villain || []).map(v => ({
+      villain: v.villain, board: v.board || [], dead: v.dead || [],
+      action: v.action ? String(v.action).toLowerCase() : null, error: v.error || null,
+      strategy: v.strategy || '', probs: v.probs || null, trained: !!v.trained, model: v.model || '',
+      equity: v.equity, equityNoDead: v.equity_no_dead, deadUsed: !!v.dead_used,
+    }));
+    const ok = per.filter(v => v.action);
+    if (!ok.length) return { error: (per[0] && per[0].error) || 'no recommendation returned' };
+    const one = per.length === 1;
+    return {
+      action: one ? ok[0].action : per.map(v => (v.action || '?') + ' vs ' + v.villain).join(' · '),
+      model: ok[0].model, strategy: one ? ok[0].strategy : '',
+      reasoning: one ? ok[0].model + (ok[0].trained ? ' solved policy' : ' pot-odds fallback (spot not in solver table)') + ' (' + ok[0].strategy + ')' : '',
+      perVillain: per,
+    };
+  }
+
   async function advise(s) {
     if (s.skip) return { skipped: s.skip };
+    if (s.game.fam === 'draw') return PSDrawSolver.advise(s);
+    if (s.game.fam === 'stud' && multiOk) {
+      try { const m = await adviseMulti(s); if (m) return m; } catch (e) { return { error: e.message }; }
+    }
+    if (s.game.fam === 'stud' && s.opponents !== 1)
+      return { skipped: s.opponents + '-way — this solver server is older and reads heads-up only' };
     try {
       const r = await fetch(url() + '/api/game/' + s.game.id + '/advisor', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -222,13 +275,28 @@
     return 'differs';
   }
 
+  /* several villains: 'match' when your play fits every read, 'split' when only some */
+  function verdictMulti(mine, per) {
+    const vs = per.filter(v => v.action).map(v => {
+      const p = v.probs || {}, n = k => Object.keys(p).filter(a => norm(a) === k).reduce((t, a) => t + p[a], 0);
+      const cp = v.probs ? { fold: n('fold'), passive: n('call') + n('check'), aggressive: n('aggressive') } : null;
+      return v.verdict = verdict(mine, v.action, cp);
+    });
+    if (!vs.length) return null;
+    if (vs.every(x => x === 'match')) return 'match';
+    if (vs.every(x => x === 'differs')) return 'differs';
+    return 'split';
+  }
+
   async function assess(hand, steps, heroName, onEach) {
     const list = spots(hand, steps, heroName);
     const out = [];
     for (const s of list) {
       const a = await advise(s);
       const row = Object.assign({}, s, { advice: a });
-      row.verdict = a.action ? verdict(s.actual, a.action, a.classProbs) : null;
+      row.verdict = a.perVillain ? verdictMulti(s.actual, a.perVillain)
+        : a.drawCount != null ? (s.drawn === a.drawCount ? 'match' : 'differs')
+        : a.action ? verdict(s.actual, a.action, a.classProbs) : null;
       out.push(row);
       if (onEach) onEach(row, out.length, list.length);
     }

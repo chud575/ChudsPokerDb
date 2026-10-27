@@ -569,6 +569,20 @@ body:not(.view-replayer) #replayerTools{display:none}
 .svTop .mine{color:#ffe9a8}
 .svTop .theirs{color:#8fd3ff}
 .svSub{font-size:11px;color:var(--dim);margin-top:2px;line-height:1.35}
+.svRow.split{border-left-color:#d9b43a}
+.svVil{font-size:11.5px;margin-top:3px;padding-left:6px;border-left:2px solid transparent;line-height:1.4}
+.svVil.match{border-left-color:var(--good)}
+.svVil.differs{border-left-color:var(--bad)}
+.svVil .theirs{color:#8fd3ff;font-weight:600}
+.svVil .cards{color:var(--dim);font-variant-numeric:tabular-nums}
+.svAuto{display:flex;align-items:center;gap:4px;margin:6px 0 2px;cursor:pointer}
+#solverBand{display:none;padding:7px 18px;background:#121a22;border-top:1px solid var(--line);font-size:12px;min-height:64px;box-sizing:border-box}
+#solverBand.on{display:block}
+#solverBand .sbTop{display:flex;gap:8px;align-items:baseline;margin-bottom:2px}
+#solverBand .st{color:var(--dim2);font-size:10.5px;text-transform:uppercase;letter-spacing:.7px}
+#solverBand .ok{color:var(--good)} #solverBand .bad{color:var(--bad)} #solverBand .mid{color:#d9b43a}
+body.blackbg #solverBand{background:#000}
+body.presenting #solverBand{display:none}
 .svCtx{font-size:10.5px;color:var(--dim2);margin-top:2px;font-variant-numeric:tabular-nums}
 
 /* ---------- tournament overview (PokerStars "Tournament History" summaries) ---------- */

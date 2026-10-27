@@ -244,7 +244,7 @@
     out.textContent = 'asking the solver…';
     const ping = await PSSolver.ping();
     if (!ping.ok) { out.textContent = 'The HORSE+ solver is not answering at ' + PSSolver.url() + ' (' + ping.why + '). Start it, or set its address on the replayer’s Solver tab.'; return; }
-    let asked = 0, agreed = 0, skipped = 0;
+    let asked = 0, agreed = 0, skipped = 0, split = 0;
     const diffs = [];
     for (let k = 0; k < can.length; k++) {
       const r = can[k];
@@ -254,13 +254,14 @@
       rows.forEach(d => {
         if (!d.verdict) { skipped++; return; }
         asked++;
-        if (d.verdict === 'match') agreed++; else diffs.push({ r: r, d: d });
+        if (d.verdict === 'match') agreed++; else if (d.verdict === 'split') split++; else diffs.push({ r: r, d: d });
       });
     }
     out.textContent = '';
-    if (!asked) { out.appendChild(el('div', 'dim trNote', 'The solver could not take any decision in this tournament (' + skipped + ' were outside what it covers: it answers heads-up limit Razz, Stud, Stud Hi/Lo and Hold’em only).')); return; }
+    if (!asked) { out.appendChild(el('div', 'dim trNote', 'The solver could not take any decision in this tournament (' + skipped + ' were outside what it covers: it answers limit Razz, Stud, Stud Hi/Lo and Hold’em only).')); return; }
     out.appendChild(el('p', null, 'The solver took ' + asked + ' of your decisions and agreed with ' + agreed + ' (' + pc(agreed / asked) + '). ' + skipped +
-      ' more were outside what it covers (multiway pots, mostly). It judges on what you could see, not on the cards that turned up.'));
+      ' more were outside what it covers. It judges on what you could see, not on the cards that turned up.' +
+      (split ? ' In ' + split + ' multiway stud spot' + (split === 1 ? '' : 's') + ' your play fit the read against some villains but not others (each villain is read heads-up, the rest of the table’s cards dead).' : '')));
     if (diffs.length) {
       const t = el('table', 'tbl stats rvTbl');
       diffs.slice(0, 25).forEach(x => {

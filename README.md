@@ -385,16 +385,30 @@ cd "/path/to/HORSE+ Master" && python3 horse_master.py -p 5055
 (Port 5000 is taken by macOS Control Center, hence 5055.) The tab has a **test** button that says
 plainly whether it can reach the solver. The address is configurable and remembered.
 
-What it covers, and what it does not:
+**While you replay.** A band under the table shows the solver's advice for the decision you are
+about to make; step past it and the band says whether you agreed. Every decision in the hand is asked
+once when the hand opens and kept. Turn it off with the checkbox on the Solver tab.
 
-* **Razz, Stud Hi, Stud Hi/Lo, Hold'em** — the solver answers for these. **Omaha Hi/Lo** is
-  registered in the solver but its advisor returns HTTP 500 for every payload shape, so it is left
-  out until that is fixed.
-* **No draw games.** The solver has no Badugi or 2-7 model, which is most of your volume.
-* **Heads-up spots only** for the stud family: those adapters return nothing when more than one
-  opponent is live. About half of your Razz decisions qualify; the rest are listed with the reason
-  rather than silently dropped.
-* **Fixed-limit only**, which is what the models were trained on.
+What it covers:
+
+* **Razz, Stud Hi, Stud Hi/Lo** — the stud solvers are heads-up, so a **multiway** pot is read one
+  villain at a time. For villain A, every other upcard on the table (the other villains' and any
+  folded ones) is dead, out of the deck. The equity the solver keys on is recomputed without those
+  cards, and it answers as if you were heads-up with A. Then the same for villain B, with A's cards
+  dead. You get one answer per villain, with that read's equity (and the no-dead-cards equity when
+  they differ). On 3rd street the solver keys on the exact cards rather than an equity, so dead cards
+  only change the equity shown there. A decision that fits every read counts as agreeing; one that
+  fits only some is marked "fits some reads, not all". This needs the HORSE+ build with
+  `advisor_multi`; an older server answers heads-up spots only.
+* **Hold'em** — the N-handed limit solver gets the whole betting line, so multiway pots are read as
+  they are.
+* **2-7 Triple Draw, A-5 Triple Draw, Badugi** — asked of the Triple Draw trainer (TD27Web: locally
+  on port 8728, on the hosted site `/TripleDraw/`), whose brains are trained 2-6 handed. It replays
+  the hand on its own engine and gives the betting mix and, at a draw, how many to take and which
+  cards to throw. Hands with an all-in, a dead blind or more than 6 players are skipped with the
+  reason. Draw decisions are judged on the number of cards drawn.
+* **Not covered:** Omaha Hi/Lo (its advisor returns HTTP 500), 2-7 / A-5 Single Draw, 5 Card Draw,
+  Badeucy, Badacey, and anything not fixed-limit.
 
 Two conversions matter and are handled here: pot and to-call are sent in **small bets** (for a level
 of `(100/200)` the small bet is 100), and hero cards are sent in dealt order because the adapters
@@ -825,6 +839,9 @@ js/engine.js    events -> array of full table snapshots (one per visible step)
 js/equity.js    hand evaluators for every family + chunked Monte-Carlo equity
 js/builder.js   hand composer: model -> valid PokerStars text, incl. pot and showdown
 js/buildui.js   the builder screen: card grid, action lists, live validation, saved-hand library
+js/solver.js    HORSE+ solver client: every hero decision -> advice (multiway stud read per villain, others dead)
+js/drawsolver.js  draw-game advice from the Triple Draw trainer (TD27Web /api/builder)
+js/solverui.js  the Solver tab and the advice band under the table
 js/plans.js     lesson plans: ordered groups of hands, export/import, the "+ Lesson" picker
 js/db.js        the library: IndexedDB store of hands, tournaments, summaries and performance records
 js/tsummary.js  "Tournament History" emails: RTF -> text, standings parser, performance records
