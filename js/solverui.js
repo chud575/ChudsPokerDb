@@ -132,8 +132,9 @@
   }
 
   /* one villain's read: "raise vs Bob — RAISE 91% · CALL 9% · equity 74% (71% with no dead cards)" */
-  function villainLine(v, mine) {
-    const d = el('div', 'svVil' + (v.verdict === 'match' ? ' match' : v.verdict === 'differs' ? ' differs' : ''));
+  function villainLine(v, ahead) {
+    // ahead: the decision is still to come, so don't colour it by what you went on to do
+    const d = el('div', 'svVil' + (ahead ? '' : v.verdict === 'match' ? ' match' : v.verdict === 'differs' ? ' differs' : ''));
     d.appendChild(el('b', null, 'vs ' + v.villain));
     if (v.board.length) d.appendChild(el('span', 'cards', ' ' + v.board.join(' ')));
     if (!v.action) { d.appendChild(el('span', 'dim', '  ' + (v.error || 'no answer'))); return d; }
@@ -237,7 +238,7 @@
     b.appendChild(top);
     const a = r.advice;
     if (a.skipped || a.error) { b.appendChild(el('div', 'dim', a.skipped || ('solver error: ' + a.error))); return; }
-    if (a.perVillain) a.perVillain.forEach(v => b.appendChild(villainLine(v)));
+    if (a.perVillain) a.perVillain.forEach(v => b.appendChild(villainLine(v, !!next)));
     else b.appendChild(el('div', 'svVil', (a.action || '') + (a.strategy ? '  ' + a.strategy : '') + (a.model ? '  [' + a.model + ']' : '')));
   }
 
