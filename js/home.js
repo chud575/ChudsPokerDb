@@ -35,6 +35,7 @@
     view = v;
     if (document.scrollingElement) document.scrollingElement.scrollLeft = 0;
     document.body.className = document.body.className.replace(/\bview-\w+/g, '').trim() + ' view-' + v;
+    fitChrome();                 // the replayer's tools change how tall the top bar is
     if (v === 'library') refreshLibrary();
     if (v === 'players') refreshPlayers();
     if (v === 'me') openMe();
@@ -881,7 +882,17 @@
   }
 
   /* ===================================================================== */
+  /* the screens sit under the top bar and the tabs; on a phone the top bar wraps to two or
+     three rows, so measure it instead of trusting the CSS default */
+  function fitChrome() {
+    const t = document.getElementById('topbar'), n = document.getElementById('tabs');
+    if (t && n) document.documentElement.style.setProperty('--chrome', (t.offsetHeight + n.offsetHeight) + 'px');
+  }
+
   async function init() {
+    fitChrome();
+    window.addEventListener('resize', fitChrome);
+    if (global.ResizeObserver) new ResizeObserver(fitChrome).observe(document.getElementById('topbar'));
     const p = await PSDB.probe();
     libOk = p.ok;
     libNote = p.ok ? '' : (p.why + ' — ' + p.hint);
