@@ -31,9 +31,8 @@
     razz:   { id: 'razz',    fam: 'stud', label: 'Razz' },
     stud:   { id: 'stud_hi', fam: 'stud', label: 'Stud Hi' },
     stud8:  { id: 'stud8',   fam: 'stud', label: 'Stud Hi/Lo' },
-    holdem: { id: 'holdem',  fam: 'flop', label: "Hold'em" },
-    // omaha8 is registered in the solver but its advisor returns HTTP 500 for
-    // every payload shape tried, so it is left out until that is fixed.
+    holdem: { id: 'holdem',  fam: 'flop', label: "Hold'em", holes: 2 },
+    omaha8: { id: 'omaha8',  fam: 'flop', label: 'Omaha Hi/Lo', holes: 4 },
     // draw games: the Triple Draw trainer's brains (TD27Web), 2-6 players natively
     td27:   { id: 0, fam: 'draw', label: '2-7 Triple Draw' },
     a5td:   { id: 1, fam: 'draw', label: 'A-5 Triple Draw' },
@@ -147,7 +146,7 @@
         actual: e.verb,
         actualLabel: e.verb + (e.to ? ' to ' + e.to : e.amount ? ' ' + e.amount : ''),
       };
-      if (g.fam === 'flop') spot.line = lineFor(hand, i, hero);
+      if (g.id === 'holdem') spot.line = lineFor(hand, i, hero);
       if (!valid(spot)) { spot.skip = reasonInvalid(spot); }
       out.push(spot);
     });
@@ -162,7 +161,7 @@
       const want = Math.min(s.heroCards.length, 6) - 2;
       return s.oppBoards.every(b => b.length === want);
     }
-    if (s.game.fam === 'flop') return s.heroCards.length === 2 && STREET_IX[s.street] != null;
+    if (s.game.fam === 'flop') return s.heroCards.length === s.game.holes && STREET_IX[s.street] != null;
     return false;
   }
   function reasonInvalid(s) {
