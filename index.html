@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PokerStars Hand Replayer</title>
-<link rel="stylesheet" href="css/styles.css?v=20261027c">
+<link rel="stylesheet" href="css/styles.css?v=20261029f">
 </head>
 <body>
 
@@ -14,6 +14,7 @@
 
 
   <div class="spacer"></div>
+  <button class="btn" id="toolsBtn" title="Hero, X-ray, equity, colours">⚙</button>
 
   <div id="replayerTools">
   <div class="heroPick">
@@ -54,6 +55,7 @@
 <main id="viewReplayer" class="screen">
   <!-- ------------------------------------------------ hand list -->
   <aside id="left">
+    <div class="drawerHead"><b>Hands</b><button class="btn" id="handsClose">Done</button></div>
     <div class="filters">
       <div class="row loadRow">
         <select id="fTourney" title="Load a tournament from the library into the replayer — or the whole library"></select>
@@ -94,6 +96,7 @@
   <section id="stage">
     <div id="handHead">
       <div class="hhLine">
+        <button id="handsBtn" class="btn" title="Pick a hand">☰ Hands</button>
         <button id="starBtn" class="star big" title="Tag this hand for review (s)">☆</button>
         <div id="hhTitle">Load a hand history to begin</div>
         <button id="planBtn" class="btn planBtn" title="Add this hand to a lesson">+ Lesson</button>
@@ -357,7 +360,7 @@
 <script src="js/tsummary.js?v=20261022c"></script>
 <script src="js/playmoney.js?v=20261005a"></script>
 <script src="js/stats.js?v=20261005a"></script>
-<script src="js/home.js?v=20261027b"></script>
+<script src="js/home.js?v=20261029c"></script>
 <script src="js/tourneys.js?v=20261022c"></script>
 <script src="js/evtables.js?v=20261005a"></script>
 <script src="js/starthands.js?v=20261019a"></script>
@@ -370,6 +373,6 @@
 <script src="js/drawsolver.js?v=20261027c"></script>
 <script src="js/solver.js?v=20261027b"></script>
 <script src="js/solverui.js?v=20261028a"></script>
-<script src="js/app.js?v=20261022a"></script>
+<script src="js/app.js?v=20261029c"></script>
 </body>
 </html>

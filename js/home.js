@@ -889,7 +889,18 @@
     if (t && n) document.documentElement.style.setProperty('--chrome', (t.offsetHeight + n.offsetHeight) + 'px');
   }
 
+  /* on a phone the list-and-detail screens stack, so a pick in the list fills a
+     panel below the fold — bring it up (same query as PHONE_MQ in app.js) */
+  function phoneDetailScroll(e) {
+    if (!global.matchMedia('(max-width:820px), (max-height:500px)').matches) return;
+    const list = e.target.closest('#viewPlayers .plSide, #viewTourneys .plSide, #viewStarts .shMain');
+    if (!list || !e.target.closest('.plRow, .toRow, tbody tr') || e.target.closest('th, input, select, button, label')) return;
+    const d = list.parentElement.querySelector('#plDetail, #toDetail, #shDetail');
+    if (d) setTimeout(() => d.scrollIntoView({ block: 'start' }), 80);
+  }
+
   async function init() {
+    document.addEventListener('click', phoneDetailScroll, true);   // before the row re-renders itself
     fitChrome();
     window.addEventListener('resize', fitChrome);
     if (global.ResizeObserver) new ResizeObserver(fitChrome).observe(document.getElementById('topbar'));

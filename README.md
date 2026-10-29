@@ -332,6 +332,21 @@ Then open http://localhost:8777.
 
 The scrub bar under the buttons seeks anywhere in the hand, and the speed slider sets autoplay pace.
 
+## On a phone
+
+Below 820px wide (or a phone on its side) every screen becomes a page that scrolls:
+
+- **Replay hands:** the table is laid out for a narrow screen.  You sit wide along the bottom
+  with bigger cards, everyone else goes in two columns (clockwise, up the left and down the right,
+  with an odd player out on top), and the board and pot get a band of their own between them.
+  Bets, the dealer button and pitched draw cards sit on each player's box.  **☰ Hands** opens the
+  hand list as a full-screen drawer, and picking a hand closes it.  **⚙** in the top bar shows the
+  Hero, X-ray, equity and colour settings.  The action log, hand info and solver tabs come after
+  the controls.
+- **Players, Tournaments, Starting hands:** the list sits on top and the detail below.  Tapping a
+  row scrolls you down to its detail.
+- Wide tables scroll sideways.
+
 ## Tagging hands for review
 
 Every row in the hand list has a star, and so does the open hand (next to its title, or press `s`).

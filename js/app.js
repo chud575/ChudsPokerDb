@@ -257,9 +257,10 @@
     }
     steps = stepCache.get(h.id);
     si = 0;
+    document.body.classList.remove('handsOpen');
     document.querySelectorAll('.hrow.sel').forEach(e => e.classList.remove('sel'));
     const row = [...document.querySelectorAll('.hrow')].find(e => e.dataset.id === h.id);
-    if (row) { row.classList.add('sel'); row.scrollIntoView({ block: 'nearest' }); }
+    if (row) { row.classList.add('sel'); scrollWithin($('#handList'), row); }
     $('#scrub').max = steps.length - 1;
     renderHead(h);
     renderLog(h);
@@ -300,6 +301,9 @@
     // short-handed tables push the seats further out instead of making the felt
     // taller — a changing felt height would resize the table between hands
     const RX = n <= 4 ? 46 : 44, RY = n <= 2 ? 52 : n <= 4 ? 48 : 43;
+    // phones: no oval — the seats go in two columns with the board in a band
+    // between them (phoneLayout); chips, button and discards ride on the seat
+    const phone = isPhone();
 
     const pitchJobs = [];
     ps.forEach((p, k) => {
@@ -311,7 +315,8 @@
         (st.actor === p.name ? ' acting' : '') +
         (p.folded ? ' folded' : '') +
         (!p.inHand ? ' out' : ''));
-      d.style.left = c.x + '%'; d.style.top = c.y + '%';
+      if (phone) d.dataset.idx = idx;
+      else { d.style.left = c.x + '%'; d.style.top = c.y + '%'; }
       d.dataset.name = p.name;
 
       d.title = p.name + ' — seat ' + p.seat + ' — ' + fmt(p.stack);
@@ -339,9 +344,9 @@
 
       if (p.bet > 0) {
         const b = polar(ang, RX * 0.58, RY * 0.56);
-        const chip = el('div', 'betChip', fmt(p.bet));
-        chip.style.left = b.x + '%'; chip.style.top = b.y + '%';
-        seats.appendChild(chip);
+        const chip = el('div', 'betChip' + (phone ? ' inSeat' : ''), fmt(p.bet));
+        if (phone) d.appendChild(chip);
+        else { chip.style.left = b.x + '%'; chip.style.top = b.y + '%'; seats.appendChild(chip); }
       }
       // draw games: the cards a player pitched.  Placed after the loop, off the
       // seat's own front edge — an offset around the oval drifts the pile toward
@@ -349,13 +354,14 @@
       if (p.pitched && p.pitched.n > 0) pitchJobs.push({ p: p, seat: d });
       if (p.isButton) {
         const b = polar(ang + (180 / n), RX * 0.74, RY * 0.72);
-        const bt = el('div', 'dealerBtn', 'D');
-        bt.style.left = b.x + '%'; bt.style.top = b.y + '%';
-        seats.appendChild(bt);
+        const bt = el('div', 'dealerBtn' + (phone ? ' inSeat' : ''), 'D');
+        if (phone) d.appendChild(bt);
+        else { bt.style.left = b.x + '%'; bt.style.top = b.y + '%'; seats.appendChild(bt); }
       }
     });
 
-    placePitches(pitchJobs, seats);
+    if (phone) pitchJobs.forEach(j => { const g = pitchPile(j.p); g.classList.add('inSeat'); j.seat.appendChild(g); });
+    else placePitches(pitchJobs, seats);
 
     // seat cards shrink so a 7-card stud hand still fits inside the seat box
     const maxC = ps.reduce((m, p) => Math.max(m, p.cards.length), 0);
@@ -378,17 +384,21 @@
       const dx = Math.abs(pts[i].x - pts[j].x), dy = Math.abs(pts[i].y - pts[j].y);
       if (dy < estH) capW = Math.min(capW, dx - 10);   // these two share vertical space
     }
-    const seatw = Math.max(108, Math.min(wantW, capW));
-    const scw = Math.max(14, Math.min(wantScw,
-      Math.floor((seatw - 16 - (maxC - 1) * 2) / Math.max(1, maxC))));
-    feltEl.style.setProperty('--scw', scw + 'px');
-    feltEl.style.setProperty('--seatw', seatw + 'px');
+    if (!phone) {
+      const seatw = Math.max(108, Math.min(wantW, capW));
+      const scw = Math.max(14, Math.min(wantScw,
+        Math.floor((seatw - 16 - (maxC - 1) * 2) / Math.max(1, maxC))));
+      feltEl.style.setProperty('--scw', scw + 'px');
+      feltEl.style.setProperty('--seatw', seatw + 'px');
+      feltEl.style.height = '';
+    }
 
     // centre
     $('#streetTag').textContent = st.streetLabel + (h.mixed ? ' · ' + h.game.label : '');
     const bd = $('#board'); bd.innerHTML = '';
     st.board.forEach(c => bd.appendChild(faceCard(c)));
     $('#potVal').textContent = fmt(st.pot + st.streetBets);
+    if (phone) phoneLayout(feltEl, n, maxC, wantScw);
     $('#actionText').textContent = st.desc || '';
     $('#stepCount').textContent = (si + 1) + ' / ' + steps.length;
     $('#scrub').value = si;
@@ -401,7 +411,7 @@
       l.classList.toggle('cur', s === si);
     });
     const c2 = $('#paneLog .logline.cur');
-    if (c2) c2.scrollIntoView({ block: 'nearest' });
+    if (c2) scrollWithin($('#paneLog'), c2);
 
     updateEquity();
     fitPinned();
@@ -569,20 +579,86 @@
       }
       if (!best) best = { x: cx + dx * (edge + 26) + (-dy) * side, y: cy + dy * (edge + 26) + dx * side };
 
-      const g = el('div', 'pitch');
+      const g = pitchPile(p);
       g.style.left = best.x + 'px'; g.style.top = best.y + 'px';
-      for (let i = 0; i < p.pitched.n; i++) {
-        const known = p.pitched.cards && p.pitched.cards[i];
-        const c = known ? faceCard(known, 'pitchCard known') : el('div', 'card pitchCard down');
-        c.style.transform = 'rotate(' + ((i - (p.pitched.n - 1) / 2) * 12).toFixed(1) + 'deg)';
-        if (i) c.style.marginLeft = '-7px';
-        g.appendChild(c);
-      }
-      g.title = p.name + ' drew ' + p.pitched.n +
-        (p.pitched.cards ? ' — pitched ' + p.pitched.cards.join(' ') : '');
       host.appendChild(g);
       blockers.push({ left: best.x - pw / 2, right: best.x + pw / 2, top: best.y - ph / 2, bottom: best.y + ph / 2 });
     }
+  }
+
+  // scrollIntoView would also scroll the page — on a phone, where the page
+  // scrolls, every step would yank the reader down to the action log
+  function scrollWithin(box, item) {
+    const b = box.getBoundingClientRect(), r = item.getBoundingClientRect();
+    if (r.top < b.top) box.scrollTop -= b.top - r.top;
+    else if (r.bottom > b.bottom) box.scrollTop += r.bottom - b.bottom;
+  }
+
+  function pitchPile(p) {
+    const g = el('div', 'pitch');
+    for (let i = 0; i < p.pitched.n; i++) {
+      const known = p.pitched.cards && p.pitched.cards[i];
+      const c = known ? faceCard(known, 'pitchCard known') : el('div', 'card pitchCard down');
+      c.style.transform = 'rotate(' + ((i - (p.pitched.n - 1) / 2) * 12).toFixed(1) + 'deg)';
+      if (i) c.style.marginLeft = '-7px';
+      g.appendChild(c);
+    }
+    g.title = p.name + ' drew ' + p.pitched.n +
+      (p.pitched.cards ? ' — pitched ' + p.pitched.cards.join(' ') : '');
+    return g;
+  }
+
+  /* ---- phones ----
+     A 9-handed oval can't fit 375px: the seat boxes pile onto each other and the
+     board.  Instead the hero sits wide along the bottom and everyone else goes in
+     two columns — clockwise, up the left and down the right, with the odd player
+     out on top — and the board gets a band of its own between the rows.  The felt
+     is as tall as that stack, so the page scrolls rather than the cards shrinking. */
+  const PHONE_MQ = '(max-width:820px), (max-height:500px)';
+  function isPhone() { return window.matchMedia(PHONE_MQ).matches; }
+
+  function phoneLayout(feltEl, n, maxC, wantScw) {
+    const W = feltEl.clientWidth, pad = 10, gap = 8, rowGap = 16;
+    const m = n - 1;
+    const colW = Math.floor((W - 2 * pad - gap) / 2);
+    const heroW = Math.min(W - 2 * pad, 280);
+    const cardsIn = (w, want) => Math.max(14, Math.min(want,
+      Math.floor((w - 16 - (maxC - 1) * 2) / Math.max(1, maxC))));
+    const topW = m === 1 ? heroW : colW;
+    feltEl.style.setProperty('--seatw', colW + 'px');
+    feltEl.style.setProperty('--scw', cardsIn(colW, Math.min(wantScw, 30)) + 'px');
+
+    const byIdx = [];
+    feltEl.querySelectorAll('.seat').forEach(e => { byIdx[+e.dataset.idx] = e; });
+    const hero = byIdx[0];
+    hero.style.width = heroW + 'px';
+    hero.style.setProperty('--scw', cardsIn(heroW, Math.max(wantScw, 34)) + 'px');
+    const sideRows = Math.floor(m / 2), top = m % 2;
+    if (top) byIdx[sideRows + 1].style.width = topW + 'px';
+
+    // rows, top to bottom: [x, seat] pairs; the board band goes after `above` of them
+    const rows = [];
+    if (top) rows.push([[W / 2, byIdx[sideRows + 1]]]);
+    for (let r = 0; r < sideRows; r++)
+      rows.push([[pad + colW / 2, byIdx[sideRows - r]], [W - pad - colW / 2, byIdx[sideRows + top + 1 + r]]]);
+    const above = Math.ceil(rows.length / 2);
+    const centre = document.getElementById('centre');
+    const bandH = centre.offsetHeight + 2 * rowGap;
+
+    let y = pad + 6, cy = 0;
+    const place = (x, e, rowH) => { e.style.left = x + 'px'; e.style.top = (y + rowH / 2) + 'px'; };
+    rows.forEach((row, k) => {
+      if (k === above) { cy = y + bandH / 2 - rowGap / 2; y += bandH; }
+      const h = Math.max(...row.map(([, e]) => e.offsetHeight));
+      row.forEach(([x, e]) => place(x, e, h));
+      y += h + rowGap;
+    });
+    if (rows.length === above) { cy = y + bandH / 2 - rowGap / 2; y += bandH; }
+    place(W / 2, hero, hero.offsetHeight);
+    y += hero.offsetHeight + pad + 6;
+    feltEl.style.setProperty('--cy', cy + 'px');
+    const b = feltEl.offsetHeight - feltEl.clientHeight;      // the rail
+    feltEl.style.height = (y + b) + 'px';
   }
 
   function polar(deg, rx, ry) {
@@ -927,6 +1003,15 @@
       case 's': $('#starBtn').click(); e.preventDefault(); break;
     }
   });
+
+  let relay = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(relay);
+    relay = setTimeout(() => { if (cur >= 0) render(); }, 120);
+  });
+  $('#handsBtn').onclick = () => document.body.classList.toggle('handsOpen');
+  $('#handsClose').onclick = () => document.body.classList.remove('handsOpen');
+  $('#toolsBtn').onclick = () => document.body.classList.toggle('toolsOpen');
 
   /* any uncaught failure becomes visible instead of a silently empty screen */
   function showError(msg) {
