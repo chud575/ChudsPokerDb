@@ -117,7 +117,7 @@
 
     hand.events.forEach((e, i) => {
       if (e.t !== 'act' || e.player !== hero) return;
-      if (e.verb === 'bringin') return;                 // forced, not a decision
+      if (e.verb === 'bringin' && e.allin) return;      // a short stack's bring-in is forced; otherwise it is a choice against completing
       const s = byEi.get(i);
       if (!s) return;
       const pre = steps[s.i - 1] || steps[0];           // the table before the action
@@ -131,6 +131,7 @@
       const dead = [].concat(...pre.players.filter(p => p.inHand && p.folded && p.name !== hero).map(ups));
       const maxBet = pre.players.reduce((m, p) => Math.max(m, p.bet), 0);
       const potChips = pre.pot + pre.players.reduce((t, p) => t + p.bet, 0);
+      const belowBet = g.fam === 'stud' && pre.street === '3rd' && maxBet > 0 && maxBet < sb;   // only the bring-in so far
 
       const spot = {
         step: s.i, ei: i, street: pre.street, streetLabel: pre.streetLabel,
@@ -144,7 +145,10 @@
         pot: potChips / sb,
         board: (pre.board || []).slice(),
         actual: e.verb,
-        actualLabel: e.verb + (e.to ? ' to ' + e.to : e.amount ? ' ' + e.amount : ''),
+        actualLabel: (e.verb === 'bringin' ? 'bring-in' : belowBet && norm(e.verb) === 'aggressive' ? 'complete' : e.verb) +
+          (e.to ? ' to ' + e.to : e.amount ? ' ' + e.amount : ''),
+        betting: hand.game.betting || '',
+        belowBet: belowBet,
       };
       if (g.id === 'holdem') spot.line = lineFor(hand, i, hero);
       if (!valid(spot)) { spot.skip = reasonInvalid(spot); }
@@ -188,6 +192,22 @@
     return p;
   }
 
+  /* going up over a bring-in is a complete, not a raise */
+  const named = (s, action) => s.belowBet && norm(action) === 'aggressive' ? 'complete' : action;
+  const namedMix = (s, mix) => s.belowBet ? mix.replace(/RAISE/g, 'COMPLETE') : mix;
+
+  /* "BET:60% | CHECK:40%" -> {fold, passive, aggressive}, for solvers that only send the text */
+  function classesOf(strategy) {
+    const out = { fold: 0, passive: 0, aggressive: 0 };
+    let found = false;
+    for (const m of String(strategy || '').matchAll(/([A-Za-z-]+)[:\s]+(\d+(?:\.\d+)?)%/g)) {
+      const k = norm(m[1]);
+      out[k === 'aggressive' ? 'aggressive' : k === 'fold' ? 'fold' : 'passive'] += +m[2] / 100;
+      found = true;
+    }
+    return found ? out : null;
+  }
+
   /* stud, any number of villains: one heads-up answer per villain, the others' cards dead */
   let multiOk = true;     // false once the server turns out to predate advisor_multi
   async function adviseMulti(s) {
@@ -205,8 +225,8 @@
     if (j.error) return { error: j.error };
     const per = (j.per_villain || []).map(v => ({
       villain: v.villain, board: v.board || [], dead: v.dead || [],
-      action: v.action ? String(v.action).toLowerCase() : null, error: v.error || null,
-      strategy: v.strategy || '', probs: v.probs || null, trained: !!v.trained, model: v.model || '',
+      action: v.action ? named(s, String(v.action).toLowerCase()) : null, error: v.error || null,
+      strategy: namedMix(s, v.strategy || ''), probs: v.probs || null, trained: !!v.trained, model: v.model || '',
       equity: v.equity, equityNoDead: v.equity_no_dead, deadUsed: !!v.dead_used,
     }));
     const ok = per.filter(v => v.action);
@@ -237,12 +257,13 @@
       const j = await r.json();
       if (j.error) return { error: j.error };
       if (!j.recommended_action) return { error: 'no recommendation returned' };
+      const strategy = j.rebel_strategy || j.cfr_strategy || j.strategy || '';
       return {
-        action: String(j.recommended_action).toLowerCase(),
+        action: named(s, String(j.recommended_action).toLowerCase()),
         model: j.model_used || '',
         reasoning: j.reasoning || '',
-        strategy: j.rebel_strategy || j.cfr_strategy || '',
-        classProbs: j.class_probs || null,      // {fold, passive, aggressive} when the limit solver answered
+        strategy: namedMix(s, strategy),
+        classProbs: j.class_probs || classesOf(strategy),   // {fold, passive, aggressive}
         note: j.line_note || '',
         raw: j,
       };
@@ -256,7 +277,7 @@
     a = String(a || '').toLowerCase();
     if (/fold/.test(a)) return 'fold';
     if (/check/.test(a)) return 'check';
-    if (/call/.test(a)) return 'call';
+    if (/call|bring/.test(a)) return 'call';
     if (/raise|bet|complete/.test(a)) return 'aggressive';
     return a;
   }
@@ -287,6 +308,31 @@
     return 'split';
   }
 
+  /* correct / incorrect / split (fits some villains' reads, not others) / none, with why.
+     Only a real solver answer counts: not a pot-odds fallback, not an older model, and
+     never a limit solver's opinion of a no-limit or pot-limit hand. */
+  function grade(r) {
+    const none = why => ({ grade: 'none', why: why });
+    const by = { match: 'correct', differs: 'incorrect', split: 'split' };
+    const a = r.advice || {};
+    if (r.betting === 'NL' || r.betting === 'PL') return none((r.betting === 'NL' ? 'No Limit' : 'Pot Limit') + ': the solvers are limit only');
+    if (a.skipped) return none(a.skipped);
+    if (a.error) return none('solver error');
+    if (a.perVillain) {
+      const reads = a.perVillain.filter(v => v.action && v.trained);
+      if (!reads.length) return none('spot not in the solver table');
+      return { grade: by[verdictMulti(r.actual, reads)] };
+    }
+    if (!a.action) return none('no answer from the solver');
+    if (a.found === false) return none('spot not in the solver table');
+    if (r.game.fam === 'flop') {
+      if (/fallback|not in solver table/i.test(a.reasoning || '')) return none('spot not in the solver table');
+      if (/^(rebel|ev|heuristic)$/i.test(a.model || ''))
+        return none(r.opponents > 1 ? 'multiway: this solver is heads-up' : 'no solver answer for this spot');
+    }
+    return { grade: by[r.verdict] || 'none', why: r.verdict ? undefined : 'no answer from the solver' };
+  }
+
   async function assess(hand, steps, heroName, onEach) {
     const list = spots(hand, steps, heroName);
     const out = [];
@@ -296,6 +342,7 @@
       row.verdict = a.perVillain ? verdictMulti(s.actual, a.perVillain)
         : a.drawCount != null ? (s.drawn === a.drawCount ? 'match' : 'differs')
         : a.action ? verdict(s.actual, a.action, a.classProbs) : null;
+      Object.assign(row, grade(row));
       out.push(row);
       if (onEach) onEach(row, out.length, list.length);
     }

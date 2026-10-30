@@ -152,7 +152,7 @@
       const k = a.suggestedDraw;
       const toss = (j.toss || []).map(cardLabel);
       return {
-        action: k ? 'draw ' + k : 'stand pat', drawCount: k, toss: toss, model: model,
+        action: k ? 'draw ' + k : 'stand pat', drawCount: k, toss: toss, model: model, found: a.found,
         strategy: (k && toss.length ? 'throw ' + toss.join(' ') : k ? '' : 'keep all ' + s.heroCards.length) + eq,
         reasoning: '',
       };
@@ -161,7 +161,7 @@
     const lbl = { fold: 'fold', call: facing ? 'call' : 'check', raise: opened ? 'raise' : 'bet' };
     const mix = [['fold', a.fold], ['call', a.call], ['raise', a.raise]].filter(x => x[1] > 0.005).sort((x, y) => y[1] - x[1]);
     return {
-      action: lbl[mix[0][0]], model: model,
+      action: lbl[mix[0][0]], model: model, found: a.found,
       strategy: mix.map(x => lbl[x[0]].toUpperCase() + ' ' + pc(x[1])).join(' · ') + eq +
         (a.suggestedDraw != null && v.drawsRemaining > 0 ? ' · plans to draw ' + (a.suggestedDraw || 'none') : ''),
       reasoning: '',

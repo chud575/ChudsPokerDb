@@ -6,7 +6,7 @@
      luck.js       equity at showdown, luck, the cost of each bet and call
      starthands.js what kind of starting hand it was
      evtables.js   what the HORSE+ EV table says that hand is worth
-     solver.js     (on request) what the HORSE+ solver would have done
+     solver.js     (on request) every decision graded by the HORSE+ solver
 
    Every hand gets at most one tag, in this order of precedence:
      mistake   money that went in bad with cards still to come
@@ -236,48 +236,98 @@
     box.appendChild(wrap);
   }
 
-  /* the HORSE+ solver on every decision it can take — judged on what you could see */
+  /* ---------- solver scorecard: every decision in the tournament, graded ---------- */
+  const SCORE_V = 1, scoreKey = tid => 'solverScore.' + tid;
+  const count = list => {
+    const c = { correct: 0, incorrect: 0, split: 0, none: 0 };
+    list.forEach(d => c[d.grade]++);
+    c.graded = c.correct + c.incorrect + c.split;
+    return c;
+  };
+
+  function scoreRow(t, label, list, cls, showSplit) {
+    const c = count(list), tr = t.insertRow();
+    if (cls) tr.className = cls;
+    [label.replace(/ Street.*/, ''), c.correct, c.incorrect, c.split, c.graded ? pc(c.correct / c.graded) : '—', c.none]
+      .filter((v, i) => i !== 3 || showSplit).forEach(v => { tr.insertCell().textContent = v; });
+  }
+
+  function renderScore(box, saved, tid) {
+    const ds = saved.d, c = count(ds);
+    const k = el('div', 'trKpis');
+    const kpi = (v, label, cl) => { const d = el('div', 'kpi ' + (cl || '')); d.appendChild(el('b', null, String(v))); d.appendChild(el('small', null, label)); k.appendChild(d); };
+    kpi(c.correct, 'correct', 'up');
+    kpi(c.incorrect, 'incorrect', 'dn');
+    if (c.split) kpi(c.split, 'depends on the villain');
+    if (c.graded) kpi(pc(c.correct / c.graded), 'score');
+    kpi(c.none, 'not graded');
+    box.appendChild(k);
+    box.appendChild(el('div', 'dim trNote', ds.length + ' decisions in all. Correct means the solver’s top play, or a play it makes at least 25% of the time. ' +
+      'It judges what you could see, not how the cards fell, and it knows nothing of stack depth, payouts or bounties.' +
+      (c.split ? ' “Depends on the villain” is a multiway stud spot where your play fit the heads-up read against some opponents but not others.' : '')));
+
+    if (c.graded) {
+      const t = el('table', 'tbl stats rvScore');
+      const hr = t.createTHead().insertRow();
+      ['', 'Correct', 'Incorrect', 'Depends', 'Score', 'Not graded'].filter(x => x !== 'Depends' || c.split).forEach(x => { const th = document.createElement('th'); th.textContent = x; hr.appendChild(th); });
+      const games = [...new Set(ds.map(d => d.game))];
+      games.forEach(g => {
+        const mine = ds.filter(d => d.game === g);
+        if (games.length > 1) scoreRow(t, g, mine, 'game', c.split);
+        [...new Set(mine.map(d => d.street))].forEach(st => scoreRow(t, st, mine.filter(d => d.street === st), 'street', c.split));
+      });
+      box.appendChild(t);
+    }
+
+    const whys = {};
+    ds.forEach(d => { if (d.grade === 'none') whys[d.why] = (whys[d.why] || 0) + 1; });
+    const reasons = Object.keys(whys).sort((a, b) => whys[b] - whys[a]);
+    if (reasons.length) box.appendChild(el('div', 'dim trNote', 'Not graded: ' + reasons.map(w => whys[w] + ' — ' + w).join('; ') + '.'));
+
+    const bad = ds.filter(d => d.grade === 'incorrect' || d.grade === 'split');
+    if (!bad.length) return;
+    const det = el('details', 'rvBad');
+    det.appendChild(el('summary', null, 'Decisions to review (' + bad.length + ')'));
+    const t = el('table', 'tbl stats rvTbl');
+    bad.forEach(d => {
+      const tr = t.insertRow();
+      tr.insertCell().textContent = '#' + d.i;
+      tr.insertCell().textContent = d.game;
+      tr.insertCell().appendChild(cardsEl(d.cards));
+      const w = tr.insertCell(); w.className = 'why';
+      w.textContent = d.street + ': you ' + d.you + ', the solver says ' + d.solver + (d.strategy ? ' (' + d.strategy + ')' : '');
+      const nc = tr.insertCell(); nc.textContent = sgn(d.net) + ' BB'; nc.className = d.net > 0 ? 'up' : d.net < 0 ? 'dn' : '';
+      tr.style.cursor = 'pointer'; tr.onclick = () => openIn(tid, d.id);
+    });
+    det.appendChild(t);
+    box.appendChild(det);
+  }
+
   async function solverPass(box, R, tid) {
-    const can = R.rows.filter(r => r.h.hero === R.who && PSSolver.support(r.h.game.key) && r.played);
+    const can = R.rows.filter(r => r.h.hero === R.who && PSSolver.support(r.h.game.key));
     const out = el('div');
+    box.innerHTML = '';
     box.appendChild(out);
     out.textContent = 'asking the solver…';
     const ping = await PSSolver.ping();
     if (!ping.ok) { out.textContent = 'The HORSE+ solver is not answering at ' + PSSolver.url() + ' (' + ping.why + '). Start it, or set its address on the replayer’s Solver tab.'; return; }
-    let asked = 0, agreed = 0, skipped = 0, split = 0;
-    const diffs = [];
+    const ds = [];
     for (let k = 0; k < can.length; k++) {
       const r = can[k];
-      out.textContent = 'asking the solver… hand ' + (k + 1) + ' of ' + can.length;
+      out.textContent = 'asking the solver… hand ' + (k + 1) + ' of ' + can.length + ' · ' + ds.length + ' decisions so far';
       let rows;
       try { rows = await PSSolver.assess(r.h, PSEngine.build(r.h), R.who); } catch (e) { continue; }
-      rows.forEach(d => {
-        if (!d.verdict) { skipped++; return; }
-        asked++;
-        if (d.verdict === 'match') agreed++; else if (d.verdict === 'split') split++; else diffs.push({ r: r, d: d });
-      });
+      rows.forEach(d => ds.push({
+        i: r.i, id: r.id, game: r.game, net: r.net, cards: d.heroCards, street: d.streetLabel || d.street,
+        you: d.actualLabel, solver: d.advice.action || '', strategy: d.advice.strategy || '', grade: d.grade, why: d.why,
+      }));
     }
     out.textContent = '';
-    if (!asked) { out.appendChild(el('div', 'dim trNote', 'The solver could not take any decision in this tournament (' + skipped + ' were outside what it covers: it answers limit Razz, Stud, Stud Hi/Lo and Hold’em only).')); return; }
-    out.appendChild(el('p', null, 'The solver took ' + asked + ' of your decisions and agreed with ' + agreed + ' (' + pc(agreed / asked) + '). ' + skipped +
-      ' more were outside what it covers. It judges on what you could see, not on the cards that turned up.' +
-      (split ? ' In ' + split + ' multiway stud spot' + (split === 1 ? '' : 's') + ' your play fit the read against some villains but not others (each villain is read heads-up, the rest of the table’s cards dead).' : '')));
-    if (diffs.length) {
-      const t = el('table', 'tbl stats rvTbl');
-      diffs.slice(0, 25).forEach(x => {
-        const tr = t.insertRow();
-        tr.insertCell().textContent = '#' + x.r.i;
-        tr.insertCell().textContent = x.r.game;
-        tr.insertCell().appendChild(cardsEl(x.d.heroCards));
-        const w = tr.insertCell(); w.className = 'why';
-        w.textContent = (STREET[x.d.street] || x.d.street || '') + ': you ' + PSSolver.norm(x.d.actual) + ', the solver says ' + x.d.advice.action +
-          (x.d.advice.strategy ? ' (' + x.d.advice.strategy + ')' : '');
-        const nc = tr.insertCell(); nc.textContent = sgn(x.r.net) + ' BB'; nc.className = x.r.net > 0 ? 'up' : x.r.net < 0 ? 'dn' : '';
-        tr.style.cursor = 'pointer'; tr.onclick = () => openIn(tid, x.r.id);
-      });
-      out.appendChild(t);
-      if (diffs.length > 25) out.appendChild(el('div', 'dim trNote', 'and ' + (diffs.length - 25) + ' more'));
-    }
+    const saved = { v: SCORE_V, at: Date.now(), d: ds };
+    renderScore(out, saved, tid);
+    // a run the solver dropped out of is not worth keeping
+    if (ds.some(d => d.why === 'solver error')) out.appendChild(el('div', 'dim trNote', 'The solver failed on some decisions, so this run was not saved. Check again to fill them in.'));
+    else { try { await PSDB.setMeta(scoreKey(tid), saved); } catch (e) { console.warn('solver score', e); } }
   }
 
   async function render(box, tid, who, hands, res) {
@@ -288,6 +338,16 @@
     const sum = el('div', 'shNotes lkIns');
     summary(R, res, s).forEach(x => sum.appendChild(el('p', null, x)));
     box.appendChild(sum);
+    if (global.PSSolver && R.rows.some(r => PSSolver.support(r.h.game.key))) {
+      box.appendChild(el('h4', 'sec', 'Solver scorecard'));
+      const holder = el('div');
+      const b = el('button', 'btn', 'Grade every decision with the solver');
+      b.onclick = () => { b.disabled = true; solverPass(holder, R, tid).then(() => { b.disabled = false; b.textContent = 'Check again'; }); };
+      const saved = await PSDB.getMeta(scoreKey(tid)).catch(() => null);
+      if (saved && saved.v === SCORE_V) { renderScore(holder, saved, tid); b.textContent = 'Check again'; }
+      box.appendChild(holder);
+      box.appendChild(b);
+    }
     stackChart(box, R, tid);
     list(box, 'Key mistakes — money in bad with cards to come', R.mistakes, tid);
     list(box, 'Well played', R.good, tid);
@@ -295,13 +355,6 @@
     list(box, 'Worth a second look', R.look, tid);
     box.appendChild(el('div', 'dim trNote', 'Mistakes and good plays at showdown are judged against the hands your opponents turned out to hold, so they are hindsight — a flag to replay the hand, not a verdict. ' +
       'Hands that never reached a showdown can only be rated by the money that went in and the starting hand. Click any hand to replay it inside the tournament.'));
-    if (global.PSSolver && R.rows.some(r => PSSolver.support(r.h.game.key))) {
-      box.appendChild(el('h4', 'sec', 'HORSE+ solver check'));
-      const b = el('button', 'btn', 'Check my decisions with the solver');
-      const holder = el('div');
-      b.onclick = () => { b.disabled = true; holder.innerHTML = ''; solverPass(holder, R, tid).then(() => { b.disabled = false; b.textContent = 'Check again'; }); };
-      box.appendChild(b); box.appendChild(holder);
-    }
     return R;
   }
 
