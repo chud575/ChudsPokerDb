@@ -75,9 +75,10 @@
 
   // why the solver cannot take this hand, or '' when it can
   function unsupported(h) {
+    const lim = PSSolver.limitOnly(h.game.betting);
+    if (lim) return lim + '.';
     const g = PSSolver.support(h.game.key);
     if (!g) return 'The solver has no model for ' + h.game.label + '. It covers Razz, Stud Hi, Stud Hi/Lo, Hold’em, 2-7 and A-5 Triple Draw and Badugi.';
-    if (h.game.betting !== 'FL') return 'The solver’s models are fixed-limit; this hand is ' + h.game.betting + '.';
     return '';
   }
 
@@ -201,8 +202,10 @@
     const b = $('#solverBand');
     if (!b) return;
     const h = PSApp.hand();
-    if (!h || !auto() || unsupported(h)) { b.className = ''; b.innerHTML = ''; bandHand = null; return; }
+    const lim = h && PSSolver.limitOnly(h.game.betting);
+    if (!h || !auto() || (unsupported(h) && !lim)) { b.className = ''; b.innerHTML = ''; bandHand = null; return; }
     b.className = 'on';
+    if (lim) { b.innerHTML = ''; b.appendChild(el('span', 'dim', lim + '.')); bandHand = null; return; }
     const fam = PSSolver.support(h.game.key).fam;
     if (reach[fam] && !reach[fam].ok) {
       b.innerHTML = '';

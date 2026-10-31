@@ -64,6 +64,10 @@
 
   const support = key => GAMES[key] || null;
 
+  /* what to say instead of advice on a no-limit or pot-limit hand; '' for a limit hand */
+  const limitOnly = betting => betting === 'NL' ? 'No Limit: the solvers are limit only'
+    : betting === 'PL' ? 'Pot Limit: the solvers are limit only' : '';
+
   /* ---------- limit hold'em: the whole betting line, for the N-max limit solver ----------
      The classic advisor only sees cards, pot and board.  The limit solver also wants to know
      who sat where and what everyone did before this decision, so for limit hold'em we send
@@ -315,7 +319,7 @@
     const none = why => ({ grade: 'none', why: why });
     const by = { match: 'correct', differs: 'incorrect', split: 'split' };
     const a = r.advice || {};
-    if (r.betting === 'NL' || r.betting === 'PL') return none((r.betting === 'NL' ? 'No Limit' : 'Pot Limit') + ': the solvers are limit only');
+    if (limitOnly(r.betting)) return none(limitOnly(r.betting));
     if (a.skipped) return none(a.skipped);
     if (a.error) return none('solver error');
     if (a.perVillain) {
@@ -349,5 +353,5 @@
     return out;
   }
 
-  global.PSSolver = { url, setUrl, ping, support, spots, advise, assess, verdict, norm, GAMES, DEF };
+  global.PSSolver = { url, setUrl, ping, support, limitOnly, spots, advise, assess, verdict, norm, GAMES, DEF };
 })(window);

@@ -402,7 +402,9 @@ plainly whether it can reach the solver. The address is configurable and remembe
 
 **While you replay.** A band under the table shows the solver's advice for the decision you are
 about to make; step past it and the band says whether you agreed. Every decision in the hand is asked
-once when the hand opens and kept. Turn it off with the checkbox on the Solver tab.
+once when the hand opens and kept. Turn it off with the checkbox on the Solver tab. The solvers are
+limit only, so on a No Limit or Pot Limit hand the band says that instead of giving advice, and the
+tournament scorecard leaves those hands ungraded.
 
 What it covers:
 
