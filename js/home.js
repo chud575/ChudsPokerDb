@@ -206,6 +206,47 @@
       out.stars.length + ' stars and ' + ((plans && plans.plans) ? plans.plans.length : 0) + ' lessons');
   }
 
+  /* ---------- the stats snapshot the Table HUD reads ---------- */
+  async function exportHud() {
+    const lib = await ensureLibrary();
+    if (!lib.hands.length) { toast('The library is empty, so there is nothing to export.', 'bad'); return; }
+    const snap = PSStats.overlaySnapshot(lib.hands);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(snap)], { type: 'application/json' }));
+    a.download = 'poker-hud-stats.json';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+    const players = Object.values(snap.sites).reduce((n, s) => n + Object.keys(s).length, 0);
+    toast('Exported ' + players + ' players from ' + lib.hands.length + ' hands for the Table HUD');
+  }
+
+  /* ---------- hands recorded by the Table HUD ---------- */
+  /* The HUD cannot write to this browser's library, so the page collects from it. When the
+     HUD is not running the request simply fails and nothing happens. */
+  const HUD = 'http://127.0.0.1:47311';   // Bridge.port in the HUD
+  let hudBusy = false;
+  async function hudSync() {
+    if (!libOk || hudBusy) return;
+    hudBusy = true;
+    try {
+      const after = (await PSDB.getMeta('hudSeq')) || 0;
+      let got;
+      try { got = await (await fetch(HUD + '/recorded?after=' + after)).json(); } catch (e) { return; }
+      if (got.seq === after) return;
+      let added = 0;
+      for (const f of got.files) added += (await PSDB.addHands(PSParser.parseFile(f.text, f.name))).added;
+      await PSDB.setMeta('hudSeq', got.seq);    // only once they are stored, so a failure retries
+      if (!added) return;
+      dropCache();
+      const lib = await ensureLibrary();
+      await fetch(HUD + '/stats', { method: 'POST', body: JSON.stringify(PSStats.overlaySnapshot(lib.hands)) });
+      toast('Recorded ' + added + ' new hands from the Table HUD');
+      refreshHome();
+    } catch (e) {
+      console.warn('HUD sync failed', e);
+    } finally { hudBusy = false; }
+  }
+
   async function restore(file) {
     if (!file) return;
     let b;
@@ -921,6 +962,7 @@
     $('#fTourney').onchange = e => { const v = e.target.value; if (v === 'library') openLibrary(); else if (v) openTourney(v); };
     $('#tourBtn').onclick = resultsForCurrent;
     $('#libBackup').onclick = backup;
+    $('#libHud').onclick = exportHud;
     $('#libRestore').onchange = e => { restore(e.target.files[0]); e.target.value = ''; };
     $('#libClear').onclick = async () => {
       if (!confirm('Delete every hand and every tournament result from the library? Lessons and markup are not touched.')) return;
@@ -939,6 +981,9 @@
       } else show('home');
     } else show('replayer');
     refreshHome();
+    hudSync();
+    setInterval(hudSync, 10000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) hudSync(); });
   }
 
   global.PSHome = {

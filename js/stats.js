@@ -246,5 +246,33 @@
     };
   }
 
-  global.PSStats = { SHORT, rowsFor, collect, summary, extras, tourneySummary, newRow, add, pct, fmtPct };
+  /* ---------- the Table HUD's copy of the numbers ---------- */
+  /* The overlay is a native app and cannot open this browser's library, so it reads this
+     snapshot instead.  Every number comes from summary(); the HUD only displays them.
+     Sites stay apart (the same name on two sites is two people), and games stay apart. */
+  const HUD_STATS = ['vpip', 'pfr', '3bet', 'f3bet', 'wtsd', 'wsd', 'aggf2'];
+
+  function overlaySnapshot(hands) {
+    const bySite = {};
+    for (const h of hands) (bySite[h.site || 'Unknown'] || (bySite[h.site || 'Unknown'] = [])).push(h);
+    const sites = {};
+    for (const site in bySite) {
+      const db = collect(bySite[site]), players = {};
+      for (const name in db) {
+        const games = {};
+        for (const key in db[name].games) {
+          const r = db[name].games[key], stats = {};
+          for (const s of summary(r)) {
+            if (HUD_STATS.includes(s.k) && s.raw != null) stats[s.k] = [Math.round(s.raw * 10) / 10, s.d];
+          }
+          games[key] = { label: r.label, hands: r.hands, stats: stats };
+        }
+        if (Object.keys(games).length) players[name] = games;
+      }
+      sites[site] = players;
+    }
+    return { app: 'Poker HUD snapshot', v: 1, saved: new Date().toISOString(), hands: hands.length, sites: sites };
+  }
+
+  global.PSStats = { SHORT, rowsFor, collect, summary, extras, tourneySummary, newRow, add, pct, fmtPct, overlaySnapshot };
 })(window);
