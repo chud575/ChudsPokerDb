@@ -309,8 +309,11 @@
     box.innerHTML = '';
     box.appendChild(out);
     out.textContent = 'asking the solver…';
-    const ping = await PSSolver.ping();
-    if (!ping.ok) { out.textContent = 'The HORSE+ solver is not answering at ' + PSSolver.url() + ' (' + ping.why + '). Start it, or set its address on the replayer’s Solver tab.'; return; }
+    // nothing but no-limit and pot-limit hands: no question for the solver, so no need for it to be up
+    if (can.some(r => !PSSolver.limitOnly(r.h.game.betting))) {
+      const ping = await PSSolver.ping();
+      if (!ping.ok) { out.textContent = 'The HORSE+ solver is not answering at ' + PSSolver.url() + ' (' + ping.why + '). Start it, or set its address on the replayer’s Solver tab.'; return; }
+    }
     const ds = [];
     for (let k = 0; k < can.length; k++) {
       const r = can[k];

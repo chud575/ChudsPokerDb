@@ -151,7 +151,6 @@
         actual: e.verb,
         actualLabel: (e.verb === 'bringin' ? 'bring-in' : belowBet && norm(e.verb) === 'aggressive' ? 'complete' : e.verb) +
           (e.to ? ' to ' + e.to : e.amount ? ' ' + e.amount : ''),
-        betting: hand.game.betting || '',
         belowBet: belowBet,
       };
       if (g.id === 'holdem') spot.line = lineFor(hand, i, hero);
@@ -313,13 +312,12 @@
   }
 
   /* correct / incorrect / split (fits some villains' reads, not others) / none, with why.
-     Only a real solver answer counts: not a pot-odds fallback, not an older model, and
-     never a limit solver's opinion of a no-limit or pot-limit hand. */
+     Only a real solver answer counts: not a pot-odds fallback, not an older model.
+     No-limit and pot-limit hands arrive skipped: assess never asks the solver about them. */
   function grade(r) {
     const none = why => ({ grade: 'none', why: why });
     const by = { match: 'correct', differs: 'incorrect', split: 'split' };
     const a = r.advice || {};
-    if (limitOnly(r.betting)) return none(limitOnly(r.betting));
     if (a.skipped) return none(a.skipped);
     if (a.error) return none('solver error');
     if (a.perVillain) {
@@ -339,9 +337,10 @@
 
   async function assess(hand, steps, heroName, onEach) {
     const list = spots(hand, steps, heroName);
+    const lim = limitOnly(hand.game.betting);
     const out = [];
     for (const s of list) {
-      const a = await advise(s);
+      const a = lim ? { skipped: lim } : await advise(s);
       const row = Object.assign({}, s, { advice: a });
       row.verdict = a.perVillain ? verdictMulti(s.actual, a.perVillain)
         : a.drawCount != null ? (s.drawn === a.drawCount ? 'match' : 'differs')
