@@ -75,7 +75,7 @@
 
   // why the solver cannot take this hand, or '' when it can
   function unsupported(h) {
-    const lim = PSSolver.limitOnly(h.game.betting);
+    const lim = PSSolver.limitOnly(h.game.betting) || PSSolver.noBoards(h);
     if (lim) return lim + '.';
     const g = PSSolver.support(h.game.key);
     if (!g) return 'The solver has no model for ' + h.game.label + '. It covers Razz, Stud Hi, Stud Hi/Lo, Hold’em, 2-7 and A-5 Triple Draw and Badugi.';

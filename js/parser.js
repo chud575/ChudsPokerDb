@@ -1,33 +1,57 @@
 /* ===========================================================================
-   parser.js — PokerStars hand-history parser
-   Handles every game found in PokerStars .txt histories:
+   parser.js — hand-history parser for PokerStars and Phenom Poker
+   Handles every game found in their .txt histories:
      stud family : Razz, 7 Card Stud, 7 Card Stud Hi/Lo
      flop family : Hold'em, Omaha, Omaha Hi/Lo  (Limit / Pot Limit / No Limit)
      draw family : 2-7 Triple Draw, 2-7 Single Draw, A-5 Triple Draw,
                    Badugi, 5 Card Draw
      mixed       : HORSE / 8-Game / Mixed events (per-hand game switch)
+     Phenom only : 2-7 Razz, Razzdugi, Razzdeucey, Super Stud 8, Stud Hi/Lo Regular,
+                   6 Card Omaha Hi/Lo, double-board Omaha and bomb pots, Dramaha,
+                   Sviten Special, Archie
    Tournament and cash formats.
    =========================================================================== */
 (function (global) {
   'use strict';
 
   /* ---------- game table ------------------------------------------------ */
+  /* noEval: no evaluator here for this game, so equity must stay quiet rather than score it
+     as something else.  bomb: everyone antes and the first betting round is on the flop. */
   const GAME_DEFS = [
+    // Razz and Stud variants first: each contains the plain game's name
+    { re: /2-7\s*Razz/i,                 key: 'razz27', label: '2-7 Razz',        fam: 'stud', cards: 7, noEval: true },
+    { re: /Razzdugi/i,                   key: 'razzdugi', label: 'Razzdugi',      fam: 'stud', cards: 7, noEval: true },
+    { re: /Razzdeuc(e)?y/i,              key: 'razzdeucey', label: 'Razzdeucey',  fam: 'stud', cards: 7, noEval: true },
+    { re: /Super\s*Stud/i,               key: 'superstud8', label: 'Super Stud 8', fam: 'stud', cards: 7, noEval: true },
+    // Hi/Lo with no qualifier: lows of 9 and T win half the pot
+    { re: /Stud\s*Hi\/?-?Lo\s*Regular/i, key: 'studreg', label: 'Stud Hi/Lo Regular', fam: 'stud', cards: 7, noEval: true },
     { re: /Razz/i,                       key: 'razz',   label: 'Razz',            fam: 'stud', cards: 7 },
     { re: /Stud\s*Hi\/?-?Lo/i,           key: 'stud8',  label: 'Stud Hi/Lo',      fam: 'stud', cards: 7 },
     { re: /Card\s*Stud/i,                key: 'stud',   label: 'Stud Hi',         fam: 'stud', cards: 7 },
     // 5/6-card variants first: "5 Card Omaha Hi/Lo" would otherwise match plain Omaha Hi/Lo
     { re: /(?:(?:5|Five)\s*Card\s*Omaha\s*Hi\/?-?Lo|Big\s*O\b)/i, key: 'o58', label: 'Big O',  fam: 'flop', cards: 5 },
+    { re: /(?:6|Six)\s*Card\s*Omaha\s*Hi\/?-?Lo/i, key: 'o68', label: '6-Card Omaha Hi/Lo', fam: 'flop', cards: 6 },
     { re: /(?:6|Six)\s*Card\s*Omaha/i,  key: 'o6',     label: '6-Card Omaha',    fam: 'flop', cards: 6 },
     { re: /Omaha\s*Hi\/?-?Lo/i,          key: 'omaha8', label: 'Omaha Hi/Lo',     fam: 'flop', cards: 4 },
     { re: /5\s*Card\s*Omaha/i,           key: 'o5',     label: '5-Card Omaha',    fam: 'flop', cards: 5 },
     { re: /Omaha/i,                      key: 'omaha',  label: 'Omaha',           fam: 'flop', cards: 4 },
+    // double-board Omaha
+    { re: /\bP6DBP\b/,                   key: 'p6dbp',  label: '6-Card PLO Double Board Bomb Pot', fam: 'flop', cards: 6, noEval: true, bomb: true, betting: 'PL' },
+    { re: /\bPDBP\b/,                    key: 'pdbp',   label: 'PLO Double Board Bomb Pot', fam: 'flop', cards: 4, noEval: true, bomb: true, betting: 'PL' },
+    { re: /5\s*Card\s*FLO\/DB/i,         key: 'flo5db', label: '5-Card FLO Double Board', fam: 'flop', cards: 5, noEval: true },
+    { re: /FLO\/DB/i,                    key: 'flodb',  label: 'FLO Double Board', fam: 'flop', cards: 4, noEval: true },
+    // a draw between the flop and the turn
+    { re: /Dramaha\s*2-7/i,              key: 'dramaha27', label: 'Dramaha 2-7',  fam: 'flop', cards: 5, noEval: true },
+    { re: /Dramaha\s*Badugi/i,           key: 'dramahabad', label: 'Dramaha Badugi', fam: 'flop', cards: 5, noEval: true },
+    { re: /Dramaha/i,                    key: 'dramaha', label: 'Dramaha High',   fam: 'flop', cards: 5, noEval: true },
+    { re: /Sviten\s*Special/i,           key: 'sviten', label: 'Sviten Special',  fam: 'flop', cards: 5, noEval: true },
+    { re: /Archie/i,                     key: 'archie', label: 'Archie',          fam: 'draw', cards: 5, draws: 3, noEval: true },
     { re: /Hold\s*'?em/i,                key: 'holdem', label: "Hold'em",         fam: 'flop', cards: 2 },
     // draw games — sites write these in either word order ("Triple Draw 2-7" /
     // "2-7 Triple Draw"), and some spell the lowball out, so match both.
     // badugi split with a lowball half — 5 cards, three draws
-    { re: /Badeuc(e)?y/i,                                         key: 'badeucy', label: 'Badeucy',        fam: 'draw', cards: 5, draws: 3 },
-    { re: /Badac(e)?y/i,                                          key: 'badacey', label: 'Badacey',        fam: 'draw', cards: 5, draws: 3 },
+    { re: /Badeuc(e)?y/i,                                         key: 'badeucy', label: 'Badeucy',        fam: 'draw', cards: 5, draws: 3, noEval: true },
+    { re: /Badac(e)?y/i,                                          key: 'badacey', label: 'Badacey',        fam: 'draw', cards: 5, draws: 3, noEval: true },
     { re: /Badugi/i,                                              key: 'badugi', label: 'Badugi',          fam: 'draw', cards: 4, draws: 3 },
     { re: /(?:Triple\s*Draw\s*2-7|2-7\s*Triple\s*Draw|Deuce[\s-]*to[\s-]*Seven\s*Triple)/i,
                                                                   key: 'td27',   label: '2-7 Triple Draw', fam: 'draw', cards: 5, draws: 3 },
@@ -95,11 +119,11 @@
 
     const h = {
       raw: block.trim(), source: source || '',
-      id: null, site: 'PokerStars', tourney: null, buyin: null,
+      id: null, site: '', tourney: null, buyin: null,
       levelRoman: null, level: null, stakes: '', sb: 0, bb: 0, isCash: false,
       date: '', dateObj: null, mixed: null, game: null,
       table: '', maxSeats: 9, buttonSeat: null,
-      seats: [], players: {}, events: [], board: [],
+      seats: [], players: {}, events: [], board: [], board2: null,
       totalPot: 0, rake: 0, potBreakdown: '', summary: [], warnings: [],
       hero: null, heroSeat: null,
     };
@@ -109,17 +133,19 @@
       // tournaments: "<game> - Level III (150/300) - <date>"; cash: "<game> ($0.01/$0.02 USD) - <date>"
       // (the dash before the stakes is optional; the date must start with the year,
       //  or a mixed game's "(Razz Limit)" would be taken for the stakes)
-      /^PokerStars (?:Hand|Game) #(\d+):\s+(.*?)\s+(?:-\s+(?:Level\s+([IVXLC]+)\s+)?)?\(([^)]*)\)\s+-\s+(\d{4}\/.+)$/
+      // Phenom: hex hand ids, UUID tournaments, numbered levels, comma after the id optional
+      /^(PokerStars|Phenom Poker) (?:Hand|Game) #(\w+):\s+(.*?)\s+(?:-\s+(?:Level\s+([IVXLC]+|\d+)\s+)?)?\(([^)]*)\)\s+-\s+(\d{4}\/.+)$/
     );
     if (!hm) return null;
-    h.id = hm[1];
-    let mid = hm[2];
-    h.levelRoman = hm[3] || null;
-    h.level = roman(hm[3]);
-    h.stakes = hm[4];
-    h.date = hm[5].trim();
+    h.site = hm[1];
+    h.id = hm[2];
+    let mid = hm[3];
+    h.levelRoman = hm[4] || null;
+    h.level = /^\d+$/.test(hm[4] || '') ? +hm[4] : roman(hm[4]);
+    h.stakes = hm[5];
+    h.date = hm[6].trim();
 
-    const tm = mid.match(/^(?:Zoom |Home Game |Rush )?Tournament #(\d+),\s+(.*)$/);
+    const tm = mid.match(/^(?:Zoom |Home Game |Rush )?Tournament #([\w-]+),?\s+(.*)$/);
     if (tm) {
       h.tourney = tm[1];
       let rest = tm[2];
@@ -137,7 +163,7 @@
       mid = mx[2].trim();
     }
     h.game = classifyGame(mid);
-    h.game.betting = /No Limit/i.test(mid) ? 'NL' : /Pot Limit/i.test(mid) ? 'PL' : 'FL';
+    h.game.betting = h.game.betting || (/No Limit/i.test(mid) ? 'NL' : /Pot Limit/i.test(mid) ? 'PL' : 'FL');
     h.isCash = !h.tourney;
     const st = h.stakes.match(/([\d$.,]+)\s*\/\s*([\d$.,]+)/);
     if (st) { h.sb = num(st[1]); h.bb = num(st[2]); }
@@ -184,6 +210,17 @@
         const nm = L.replace(/\*/g, '').trim();
         const groups = cardsIn(L);
         let id = null, board = null;
+        // run-it-twice and double-board hands: "FIRST TURN", "SECOND SHOW DOWN".
+        // "FIRST DRAW" is a different thing and stays a draw.
+        const twin = nm.match(/^(FIRST|SECOND) (FLOP|TURN|RIVER|SHOW DOWN)/);
+        if (twin) {
+          id = twin[2] === 'SHOW DOWN' ? 'showdown' : twin[2].toLowerCase();
+          streetsSeen.push(id);
+          const run = twin[1] === 'FIRST' ? 1 : 2;
+          push({ t: 'street', id: id, run: run, board: null, all: groups.flat(),
+                 label: (STREET_LABEL[id] || nm) + ', ' + (run === 1 ? 'first board' : 'second board') }, L);
+          continue;
+        }
         if (/^3rd STREET/.test(nm)) id = '3rd';
         else if (/^4th STREET/.test(nm)) id = '4th';
         else if (/^5th STREET/.test(nm)) id = '5th';
@@ -212,8 +249,10 @@
         let m;
         if ((m = L.match(/^Total pot \$?([\d.,]+)(.*?)(?:\|\s*Rake \$?([\d.,]+))?\s*$/))) {
           h.totalPot = num(m[1]); h.potBreakdown = (m[2] || '').trim(); h.rake = num(m[3]);
-        } else if ((m = L.match(/^Board \[([^\]]*)\]/))) {
+        } else if ((m = L.match(/^(?:FIRST )?Board \[([^\]]*)\]/))) {
           h.board = m[1].split(/\s+/).filter(Boolean);
+        } else if ((m = L.match(/^SECOND Board \[([^\]]*)\]/))) {
+          h.board2 = m[1].split(/\s+/).filter(Boolean);
         } else if ((m = L.match(/^Seat (\d+): (.*)$/))) {
           const seatNo = +m[1]; let rest = m[2];
           let pname = null;
@@ -222,8 +261,8 @@
           const rec = { seat: seatNo, name: pname, text: rest, cards: null, won: 0, desc: null };
           const cm = rest.match(/\[([^\]]+)\]/);
           if (cm) rec.cards = cm[1].split(/\s+/);
-          const wm = rest.match(/won \(\$?([\d.,]+)\)/) || rest.match(/collected \(\$?([\d.,]+)\)/);
-          if (wm) rec.won = num(wm[1]);
+          // a split or a second board wins more than once: "won ($5), and won ($5)", "won Hi: $5 | won Lo: $5"
+          for (const wm of rest.matchAll(/(?:won|collected) \(\$?([\d.,]+)\)|won (?:Hi|Lo): \$?([\d.,]+)/g)) rec.won += num(wm[1] || wm[2]);
           const dm = rest.match(/with (.+)$/);
           if (dm) rec.desc = dm[1];
           const posm = rest.match(/^\((button|small blind|big blind)\)/);
@@ -333,7 +372,96 @@
     for (const r of h.summary) if (r.name && r.cards) h.revealed[r.name] = r.cards;
 
     h.streets = streetsSeen;
+    if (h.site === 'Phenom Poker') phenomFixups(h);
     return h;
+  }
+
+  /* Phenom writes the same facts as PokerStars in a few different shapes.  Everything
+     downstream reads the PokerStars shape, so hands are moved onto it here. */
+  function phenomFixups(h) {
+    const ev = h.events;
+    // bomb pots are "$0.00/$0.00": the ante is the unit their results are measured in
+    if (!h.bb) for (const e of ev) if (e.t === 'post' && e.amount > h.bb) h.bb = e.amount;
+
+    // the button is only printed in tournaments.  Otherwise it sits behind the small blind.
+    if (h.buttonSeat == null && h.game.fam !== 'stud') {
+      const sb = ev.find(e => e.t === 'post' && e.kind === 'sb');
+      const ring = h.seats.filter(s => s.inHand).map(s => s.seat).sort((a, b) => a - b);
+      if (sb && ring.length > 1) {
+        const at = ring.indexOf(h.players[sb.player].seat);
+        h.buttonSeat = ring.length === 2 ? ring[at] : ring[(at + ring.length - 1) % ring.length];
+      }
+    }
+
+    // Stars prints everyone's upcards; Phenom prints only the hero's, so a stud
+    // hand here cannot say what was dead or what the others were showing.
+    h.noUpcards = h.game.fam === 'stud';
+
+    settlePot(h);
+
+    let held = null, thrown = null, drew = false;
+    for (const e of ev) {
+      if (e.t === 'discard' && e.player === h.hero) { if (e.cards) thrown = e.cards; drew = false; continue; }
+
+      // "draws [3d]" is often all there is: the whole hand may or may not be reprinted after it.
+      // Stars writes "[kept] [new]", and that is what the draw tools read.
+      const line = e.t === 'info' && e.player === h.hero && e.text.match(/^draws \[([^\]]*)\]/);
+      if (line && thrown && held) {
+        const kept = held.filter(c => !thrown.includes(c)), fresh = line[1].split(/\s+/);
+        Object.assign(e, { t: 'deal', groups: [kept, fresh], all: kept.concat(fresh) });
+        held = e.all; thrown = null; drew = true;
+        continue;
+      }
+      if (e.t !== 'deal' || e.player !== h.hero) continue;
+      if (drew) {                                   // the reprint: nothing new in it
+        Object.assign(e, { t: 'info', kind: 'status', text: 'dealt' });
+        drew = false;
+        continue;
+      }
+      if (h.game.fam === 'stud') {
+        // "[hole hole] [up up up up]", and on 7th "[hole hole river] [up up up up]".
+        // Stars' order is the order dealt, with the newest card last.
+        const g = e.groups;
+        if (g.length === 2) {
+          const inOrder = g[0].slice(0, 2).concat(g[1], g[0].slice(2));
+          e.all = inOrder;
+          e.groups = [inOrder.slice(0, -1), inOrder.slice(-1)];
+        }
+      } else if (thrown && held && e.groups.length === 1) {
+        // no "draws" line (Dramaha): work the new cards out from the whole hand
+        const kept = held.filter(c => !thrown.includes(c));
+        const fresh = e.all.filter(c => !kept.includes(c));
+        e.groups = [kept, fresh];
+        e.all = kept.concat(fresh);
+        thrown = null;
+      }
+      held = e.all;
+    }
+  }
+
+  /* "Total pot" here includes bets nobody called, and most of those are refunded without
+     an "Uncalled bet" line, so the winner looks short by exactly that amount (checked
+     against the stacks in the next hand).  A few showdowns print no winner at all. */
+  function settlePot(h) {
+    const ev = h.events, paid = () => ev.reduce((a, e) => a + (e.t === 'collect' ? e.amount : 0), 0);
+    const end = () => { const i = ev.findIndex(e => e.t === 'collect' || e.id === 'summary'); return i < 0 ? ev.length : i; };
+    const short = +(h.totalPot - h.rake - paid()).toFixed(2);
+    if (short <= 0.02) return;
+    const put = global.PSEngine.moneyFor(h).put;
+    const rank = Object.keys(put).sort((a, b) => put[b] - put[a]);
+    if (put[rank[0]] - (put[rank[1]] || 0) > 0.02) {
+      ev.splice(end(), 0, { t: 'uncalled', player: rank[0], amount: short });
+      h.totalPot = +(h.totalPot - short).toFixed(2);
+      return;
+    }
+    if (paid() > 0 || !h.streets.includes('showdown') || h.game.noEval) return;
+    const E = global.PSEquity, names = Object.keys(h.revealed);
+    if (!E || !names.length) return;
+    const out = [];
+    E.sharesInto(h.game.key, names.map(n => h.revealed[n].map(E.cid)), h.board.map(E.cid), out);
+    names.forEach((n, i) => {
+      if (out[i] > 0) ev.splice(end(), 0, { t: 'collect', player: n, amount: +(short * out[i]).toFixed(2), pot: 'pot' });
+    });
   }
 
   /* =======================================================================
@@ -341,10 +469,10 @@
      ======================================================================= */
   function parseFile(text, filename) {
     text = String(text).replace(/^﻿/, '').replace(/\r\n?/g, '\n');
-    const blocks = text.split(/\n(?=PokerStars (?:Hand|Game) #)/);
+    const blocks = text.split(/\n(?=(?:PokerStars|Phenom Poker) (?:Hand|Game) #)/);
     const hands = [];
     for (const b of blocks) {
-      if (!/^PokerStars (?:Hand|Game) #/.test(b.trim())) continue;
+      if (!/^(?:PokerStars|Phenom Poker) (?:Hand|Game) #/.test(b.trim())) continue;
       try {
         const hh = parseHand(b, filename);
         if (hh) hands.push(hh);

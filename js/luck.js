@@ -101,6 +101,8 @@
     const real = h.hero, hero = pov || h.hero, fam = h.game.fam;
     const key = E.evalKey(h.game.key);
     if (!hero || !h.streets.includes('showdown')) return null;
+    if (h.game.noEval || h.board2) return null;     // no evaluator here, or two boards paid separately
+    if (h.noUpcards) return null;                    // shown hole cards are shuffled in with the river
 
     // ---- walk the hand: who folded, who was all-in and when, the draw rounds, visible cards, your bets
     const folded = new Set(), allin = {}, heroDeals = [], upcards = {}, rounds = [], acts = [];

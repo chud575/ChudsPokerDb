@@ -45,7 +45,7 @@
     }
     if (h.buttonSeat != null) { const b = order.find(p => p.seat === h.buttonSeat); if (b && !b.pos) b.pos = 'BTN'; }
 
-    let pot = 0, street = 'setup', board = [], contributed = 0, collected = 0;
+    let pot = 0, street = 'setup', board = [], board2 = [], contributed = 0, collected = 0;
     let curEi = -1;                     // index of the event this snapshot ends on
     h.drawLog = [];                     // every discard/stand-pat, for equity look-ahead
     let firstStreet = true;   // blinds/antes stay in front until the first betting round ends
@@ -73,7 +73,7 @@
         i: steps.length, ei: curEi, street: street, streetLabel: LBL[street] || street,
         desc: desc, actor: actor || null, kind: kind || '',
         pot: pot, streetBets: order.reduce((a, p) => a + p.bet, 0),
-        board: board.slice(), players: order.map(clone), lines: pending,
+        board: board.slice(), board2: board2.slice(), players: order.map(clone), lines: pending,
       });
       pending = [];
     }
@@ -152,7 +152,8 @@
           if (!firstStreet) flush();
           firstStreet = false;
           street = e.id;
-          if (e.board) board = board.concat(e.board);
+          if (e.run && e.id !== 'showdown') { if (e.run === 1) board = e.all.slice(); else board2 = e.all.slice(); }
+          else if (e.board) board = board.concat(e.board);
           if (street === 'summary') {
             for (const r of h.summary) {
               const q = r.name && P[r.name];
@@ -166,7 +167,12 @@
           } else {
             desc = e.label;
             if (fam === 'stud' && STUD_TARGET[street]) {
-              for (const q of order) if (q.inHand && !q.folded) padStud(q, STUD_TARGET[street]);
+              for (const q of order) if (q.inHand && !q.folded) {
+                padStud(q, STUD_TARGET[street]);
+                // no upcards in the history: anyone who shows at the end had these on the table
+                const seen = h.noUpcards && h.revealed[q.name];
+                if (seen) q.cards.forEach((c, ix) => { if (c.up && !c.c) c.c = seen[ix] || null; });
+              }
             }
             if (street === 'preflop' || street === 'predraw') {
               for (const q of order) if (q.inHand) giveUnknown(q, h.game.cards);
@@ -248,6 +254,8 @@
         }
         case 'uncalled': {
           if (!p) break;
+          // Phenom returns it after running the boards, when it has already been swept in
+          pot -= Math.max(0, e.amount - p.bet);
           p.stack += e.amount; p.bet = Math.max(0, p.bet - e.amount); contributed -= e.amount;
           desc = 'Uncalled ' + fmt(e.amount) + ' returned to ' + p.name;
           break;
@@ -291,14 +299,16 @@
 
     /* ---- consistency checks (nice loud invariants) ---- */
     const warn = h.warnings;
-    if (h.totalPot && Math.abs(collected + h.rake - h.totalPot) > 0.005)
+    // Phenom's pot-limit bets and split pots are rounded to the cent for printing
+    const near = h.site === 'Phenom Poker' ? 0.05 : 0.005;
+    if (h.totalPot && Math.abs(collected + h.rake - h.totalPot) > near)
       warn.push('pot mismatch: collected ' + collected + ' + rake ' + h.rake + ' ≠ total pot ' + h.totalPot);
-    if (h.totalPot && Math.abs(contributed - h.totalPot) > 0.005)
+    if (h.totalPot && Math.abs(contributed - h.totalPot) > near)
       warn.push('contribution mismatch: players put in ' + contributed + ' but summary total pot is ' + h.totalPot);
     for (const s of h.summary) {
       if (!s.name) continue;
       const q = P[s.name];
-      if (q && s.won && Math.abs(q.won - s.won) > 0.005)
+      if (q && s.won && Math.abs(q.won - s.won) > near)
         warn.push(s.name + ' summary win ' + s.won + ' ≠ replayed ' + q.won);
     }
 

@@ -1,7 +1,22 @@
 # PokerStars Hand Replayer
 
-A self-contained, offline hand-history viewer/replayer for PokerStars `.txt` histories.
+A self-contained, offline hand-history viewer/replayer for PokerStars and Phenom Poker `.txt` histories.
 No install, no server, no dependencies — open `index.html` in a browser and drop files on it.
+
+**Phenom Poker** histories import the same way. It writes its own version of the format and the
+parser moves each hand onto the PokerStars shape, so every screen reads one thing:
+
+* Bets nobody called are usually refunded with no line saying so. The pot is settled from the
+  numbers instead; the next hand's stacks agree. Showdowns with no winner printed are worked out.
+* Its games beyond the PokerStars list are kept apart like any other: 2-7 Razz, Razzdugi, Razzdeucey,
+  Super Stud 8, Stud Hi/Lo Regular (no qualifier), 6-Card Omaha Hi/Lo, PLO and FLO double board,
+  Dramaha, Sviten Special and Archie.
+* Run-it-twice and double-board hands show both boards. A bomb pot's first betting round is the flop.
+* Other players' stud upcards aren't in the file. Anyone who shows gets them back in the replay, but
+  the stud solver and Skill vs luck can't use these hands.
+* Equity and Skill vs luck stay quiet where there is no evaluator: the games above except 6-Card
+  Omaha Hi/Lo, plus Badeucy and Badacey. Skill vs luck skips two-board and run-it-twice hands too.
+* March 2026 hands print "Rake $0.00" when rake was taken, so those profits read slightly high.
 
 ## The main menu
 

@@ -363,7 +363,7 @@
     if (report.unreadable && report.unreadable.length)
       notes.push(report.unreadable.length + ' file(s) could not be read: ' + report.unreadable.join(', '));
     if (report.empty && report.empty.length)
-      notes.push('no PokerStars hands found in: ' + report.empty.join(', '));
+      notes.push('no PokerStars or Phenom Poker hands found in: ' + report.empty.join(', '));
     if (report.nothingUsable)
       notes.push(report.chosen
         ? 'none of those ' + report.chosen + ' file(s) are .txt hand histories'
@@ -635,8 +635,9 @@
   try { Object.assign(mf, JSON.parse(localStorage.getItem(MF_KEY)) || {}); } catch (e) { }
   const mfOn = () => Object.keys(MF0).some(k => mf[k] !== MF0[k]);
   const FAM = {
-    stud: ['razz', 'stud', 'stud8'], draw: ['badugi', 'td27', 'sd27', 'a5td', 'a5sd', 'fcd', 'badeucy', 'badacey'],
-    omaha: ['omaha8', 'omaha', 'o5', 'o6', 'bigo'], holdem: ['holdem'],
+    stud: ['razz', 'stud', 'stud8', 'razz27', 'razzdugi', 'razzdeucey', 'studreg', 'superstud8'],
+    draw: ['badugi', 'td27', 'sd27', 'a5td', 'a5sd', 'fcd', 'badeucy', 'badacey', 'archie'],
+    omaha: ['omaha8', 'omaha', 'o5', 'o6', 'o58', 'o68', 'pdbp', 'p6dbp', 'flodb', 'flo5db', 'dramaha', 'dramaha27', 'dramahabad', 'sviten'], holdem: ['holdem'],
   };
   const FAM_NAME = { stud: 'Stud games', draw: 'Draw games', omaha: 'Omaha games', holdem: 'Hold’em', mixed: 'Mixed events (HORSE, 8-Game…)' };
   function mfWindow() {

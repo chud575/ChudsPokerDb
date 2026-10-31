@@ -63,6 +63,7 @@
   }
 
   const support = key => GAMES[key] || null;
+  const noBoards = h => h.noUpcards ? 'Phenom histories leave out the other players’ upcards, which stud advice needs' : '';
 
   /* what to say instead of advice on a no-limit or pot-limit hand; '' for a limit hand */
   const limitOnly = betting => betting === 'NL' ? 'No Limit: the solvers are limit only'
@@ -337,7 +338,7 @@
 
   async function assess(hand, steps, heroName, onEach) {
     const list = spots(hand, steps, heroName);
-    const lim = limitOnly(hand.game.betting);
+    const lim = limitOnly(hand.game.betting) || noBoards(hand);
     const out = [];
     for (const s of list) {
       const a = lim ? { skipped: lim } : await advise(s);
@@ -352,5 +353,5 @@
     return out;
   }
 
-  global.PSSolver = { url, setUrl, ping, support, limitOnly, spots, advise, assess, verdict, norm, GAMES, DEF };
+  global.PSSolver = { url, setUrl, ping, support, limitOnly, noBoards, spots, advise, assess, verdict, norm, GAMES, DEF };
 })(window);

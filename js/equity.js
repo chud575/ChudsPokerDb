@@ -343,7 +343,7 @@
   const SPLIT_GAMES = { stud8: 1, omaha8: 1 };
   /* 5/6-card Omaha variants score exactly like Omaha / Omaha Hi/Lo (omahaHi and
      omahaLo8 already take any number of hole cards, two of which must play) */
-  const EVAL_KEY = { o5: 'omaha', o6: 'omaha', o58: 'omaha8' };
+  const EVAL_KEY = { o5: 'omaha', o6: 'omaha', o58: 'omaha8', o68: 'omaha8' };
   function evalKey(key) { return EVAL_KEY[key] || key; }
   function sharesInto(key, hands, board, out, outHi, outLo) {
     key = evalKey(key);
@@ -454,6 +454,7 @@
     if (live.length < 2 || live.length > 9) return null;
     // nothing to compute before the cards are actually out
     if (live.some(p => p.cards.length === 0)) return null;
+    if (hand.game.noEval) return null;              // no evaluator: say nothing rather than guess
 
     const target = fam === 'stud' ? 7 : hand.game.cards;
     const dead = [];

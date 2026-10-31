@@ -397,6 +397,8 @@
     $('#streetTag').textContent = st.streetLabel + (h.mixed ? ' · ' + h.game.label : '');
     const bd = $('#board'); bd.innerHTML = '';
     st.board.forEach(c => bd.appendChild(faceCard(c)));
+    const bd2 = $('#board2'); bd2.innerHTML = '';
+    st.board2.forEach(c => bd2.appendChild(faceCard(c)));
     $('#potVal').textContent = fmt(st.pot + st.streetBets);
     if (phone) phoneLayout(feltEl, n, maxC, wantScw);
     $('#actionText').textContent = st.desc || '';
@@ -1055,7 +1057,7 @@
   };
 
   /* demo hint when nothing loaded */
-  $('#handList').innerHTML = '<div class="empty">Load PokerStars hand-history files<br>(drag &amp; drop works too)</div>';
+  $('#handList').innerHTML = '<div class="empty">Load PokerStars or Phenom Poker hand-history files<br>(drag &amp; drop works too)</div>';
 
   if (global.PSTeach) PSTeach.init();
   if (global.PSBuildUI) PSBuildUI.init();

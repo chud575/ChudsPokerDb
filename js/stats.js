@@ -41,7 +41,7 @@
   /* ---------- one hand -> {player: row} ---------- */
   function rowsFor(h) {
     const fam = h.game.fam;
-    const firstStreet = FIRST[fam] || 'preflop';
+    const firstStreet = h.game.bomb ? 'flop' : FIRST[fam] || 'preflop';     // bomb pots open on the flop
     const out = {};
     const row = n => out[n] || (out[n] = newRow());
 
@@ -206,8 +206,8 @@
   function extras(r, gameKey) {
     const fam = (global.PSParser.classifyGame(gameKey) || {}).fam;
     const out = [];
-    const drawish = ['td27', 'sd27', 'a5td', 'a5sd', 'badugi', 'fcd'].includes(gameKey);
-    const studish = ['razz', 'stud', 'stud8'].includes(gameKey);
+    const drawish = ['td27', 'sd27', 'a5td', 'a5sd', 'badugi', 'fcd', 'badeucy', 'badacey', 'archie'].includes(gameKey);
+    const studish = ['razz', 'stud', 'stud8', 'razz27', 'razzdugi', 'razzdeucey', 'studreg', 'superstud8'].includes(gameKey);
     if (drawish) {
       const rounds = r.draws + r.pat;
       out.push({ label: 'Stands pat', v: fmtPct(pct(r.pat, rounds)), d: rounds });
