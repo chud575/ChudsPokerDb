@@ -42,6 +42,7 @@ body.view-tourneys #tabs [data-go=tourneys],
 body.view-starts   #tabs [data-go=starts],
 body.view-luck     #tabs [data-go=luck],
 body.view-draws    #tabs [data-go=draws],
+body.view-tend     #tabs [data-go=tend],
 body.view-lessons  #tabs [data-go=lessons]{
   color:#fff;background:var(--bg2);border-bottom-color:var(--accent);font-weight:600;
 }
@@ -841,6 +842,34 @@ body.blackbg .drBox{background:#0d0d0d;border-color:#242424}
 
 body.view-replayer{overflow-y:auto}
 
+/* ---------- % tendencies ---------- */
+body.view-tend #viewTend{display:flex;flex-direction:column;height:calc(var(--vh) - var(--chrome))}
+#tdWho,#tdVs{width:150px}
+.tdBar{display:flex;height:26px;max-width:760px;border-radius:6px;overflow:hidden;margin:4px 0 8px;background:#0a0f14}
+.tdBar span{display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#0b1016;overflow:hidden;
+  font-variant-numeric:tabular-nums}
+.tdBar span + span{border-left:2px solid var(--bg)}
+.tdB.strong{background:#4fd08a}.tdB.medium{background:#5aa9ff}.tdB.semi{background:#ffb454}.tdB.bluff{background:#ff6b6b}
+.tdKey{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12px;color:var(--dim);margin-bottom:8px}
+.tdK{display:flex;align-items:center;gap:6px}
+.tdK i{display:inline-block;width:11px;height:11px;border-radius:3px}
+.tdK b{color:var(--fg);font-variant-numeric:tabular-nums}
+.tdNote{max-width:760px;margin:6px 0;color:var(--dim);line-height:1.5;font-size:12px}
+.tdNote.warn{color:#ffd27a}
+.tdTbl{max-width:860px;margin-bottom:6px}
+.tdTbl td{font-variant-numeric:tabular-nums}
+.tdTbl tbody tr{cursor:pointer}
+.tdPick.on td{background:#15263a}
+.tdTag{padding:0 7px;border-radius:9px;font-size:11px;font-weight:600;color:#0b1016;white-space:nowrap}
+.tdTag.strong{background:#4fd08a}.tdTag.medium{background:#5aa9ff}.tdTag.semi{background:#ffb454}.tdTag.bluff{background:#ff6b6b}
+/* the replayer's one-line read sits under the action, inside the fixed-height banner */
+#actionBanner{flex-direction:column;align-items:flex-start;justify-content:center}
+#tendRead{font-size:11px;color:var(--dim);cursor:pointer;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-variant-numeric:tabular-nums}
+#tendRead:empty{display:none}
+#tendRead:hover{color:var(--fg)}
+body.presenting #tendRead{display:none}
+
 /* ---------- phones ----------
    One media query for every phone rule, matching PHONE_MQ in app.js (the seat layout
    switches with it): a narrow window, or a phone on its side.  Every screen becomes a
@@ -909,6 +938,11 @@ body.view-replayer{overflow-y:auto}
   .seat .pitch.inSeat .card .s{font-size:7px}
   .seat .pitch.inSeat .card + .card{margin-left:-5px !important}
 
+  #actionBanner{height:auto !important}   /* the page scrolls here, and the read wraps to more lines */
+  #tendRead{white-space:normal}
+  .tdTbl td,.tdTbl th{white-space:nowrap}
+  #tdWho,#tdVs{width:calc(50% - 4px)}
+  #viewTend select{max-width:calc(50% - 4px)}
   #solverBand{padding:7px 10px}
   #eqBox{height:auto;min-height:90px;padding:6px 10px}
   #eqRangeWrap{margin-left:0}

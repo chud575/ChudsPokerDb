@@ -46,6 +46,7 @@
     if (v === 'starts' && global.PSStart) PSStart.render();
     if (v === 'luck' && global.PSLuckUI) PSLuckUI.render();
     if (v === 'draws' && global.PSDraws) PSDraws.render();
+    if (v === 'tend' && global.PSTendUI) PSTendUI.render();
   }
 
   /* ---------- library ---------- */
@@ -433,6 +434,7 @@
     if (view === 'tourneys' && global.PSTourneys) await PSTourneys.render();
     if (view === 'starts' && global.PSStart) await PSStart.render();
     if (view === 'luck' && global.PSLuckUI) await PSLuckUI.render();
+    if (view === 'tend' && global.PSTendUI) await PSTendUI.render();
   }
 
   /* play-money tournaments as summaries (playmoney.js); a real summary wins */

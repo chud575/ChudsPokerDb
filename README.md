@@ -666,6 +666,44 @@ many are suited; Omaha by ranks and suit shape). Where the table splits a shape 
 tell apart (which two cards of a double-suited Omaha hand share a suit; which two of a stud hand),
 the variants are averaged. `tools/make_evdata.py` rebuilds the tables from a HORSE+ folder.
 
+## % Tendencies
+
+When a player check-raises before 7th street, what does it mean? This screen answers from the
+hands that were shown. Pick a player, game, line (bet, raise, check-raise, re-raise, call,
+check-call or any bet or raise) and street, and optionally one opponent.
+
+Each hand with known cards is put back to the moment of the action and read from that player's
+seat: their cards so far against what everyone else was showing, with the hidden cards random. Two
+numbers come out, both scaled so 50% is a fair share however many players are in:
+
+- **Equity:** the share of the pot it wins with the rest of the cards to come.
+- **Ahead now:** the same, if no more cards came.
+
+| Read | Rule |
+|---|---|
+| Very strong | equity 70% or more, which includes the biggest draws |
+| Bluff | equity under 40% |
+| Semi-bluff | in between, and ahead now under 60%: the money is in the draw |
+| Medium | in between and ahead now: a made hand, but not a big one |
+
+On the last street and preflop there is nothing to draw to, so nothing reads as a semi-bluff.
+
+**What the percentages are.** A player's own sample is usually tiny, so the estimate blends their
+hands with everyone's shown hands in the same spot, with everyone's counting as 8 hands' worth. The
+table shows both raw, and a player with no shown hands simply gets everyone's average, labelled as
+such. The every-line table underneath shows what the wider sample says when one spot is thin.
+
+**What they are not.** Only shown hands can be read, and a bluff that works is never turned over,
+so the bluff figure runs low. Every read lists the hands that were not seen (everyone folded, the
+player folded later, or mucked) and the highest the bluff rate could be if all of those were
+bluffs. Your own hands are always known, so yours count the folds too.
+
+Click a shown hand to open it at that moment. In the replayer, each bet or raise shows the same
+read in one line under the action, with the hand on the table left out. Click it for the full read.
+
+Not covered: draw games, because a shown hand is only what the player finished with, and what they
+held before the last draw is gone. Stud hands from histories with no upcards are also left out.
+
 ## Tournament Overview (tournament history summaries)
 
 PokerStars will email the results of your last N tournaments (*Requests → Tournament History*).
@@ -886,6 +924,8 @@ js/starthands.js starting-hand names for every game, their results, and the Star
 js/luck.js      skill vs luck: equity at the all-in / before the last card, side pots, luck per hand
 js/review.js    the tournament review: key hands tagged, stack graph, solver pass
 js/luckui.js    the Skill vs luck screen and the summary box on a tournament's page
+js/tendency.js  % Tendencies: reads shown hands at the moment of each action as bluff, semi-bluff, medium or very strong
+js/tendui.js    the % Tendencies screen and the one-line read in the replayer
 js/home.js      main menu, library / players / your-numbers screens, backup & restore, Poker HUD sync
 js/lesson.js    lesson storage — markup, notes, narration timeline, audio, export/import
 js/markup.js    the annotation layer: tools, shapes, step binding, DOM-anchored targets

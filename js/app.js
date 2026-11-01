@@ -1068,4 +1068,5 @@
   if (global.PSDraws) PSDraws.init();
   if (global.PSPlans) PSPlans.init();
   if (global.PSSolverUI) PSSolverUI.init();
+  if (global.PSTendUI) PSTendUI.init();
 })(window);

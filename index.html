@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PokerStars Hand Replayer</title>
-<link rel="stylesheet" href="css/styles.css?v=20261101b">
+<link rel="stylesheet" href="css/styles.css?v=20261101v">
 </head>
 <body>
 
@@ -49,6 +49,7 @@
   <button data-go="starts" title="Every hand you were dealt — how often you play it, win with it, and whether it pays">Starting hands</button>
   <button data-go="draws" title="When you had a draw at a given point, how often you made it — and how those hands went">Draws</button>
   <button data-go="luck" title="All-ins against their equity, suckouts for and against, and your result with the luck taken out">Skill vs luck</button>
+  <button data-go="tend" title="What a player's bets and raises have meant in the hands they showed: bluff, semi-bluff, medium or very strong">% Tendencies</button>
   <button data-go="lessons" title="Named groups of annotated hands, in teaching order">Lessons</button>
 </nav>
 
@@ -133,7 +134,7 @@
       </div>
     </div>
 
-    <div id="actionBanner"><span id="actionText"></span></div>
+    <div id="actionBanner"><span id="actionText"></span><span id="tendRead"></span></div>
 
     <div id="controls">
       <button class="ctl" id="prevHand"   title="Previous hand (↑)">⏮ hand</button>
@@ -186,6 +187,7 @@
       <button class="menuCard" data-go="starts"><b>Starting hands</b><small>Every hand you were dealt — how often you play it, win with it, and whether it pays</small></button>
       <button class="menuCard" data-go="draws"><b>Draw performance</b><small>When you had a draw at a given street or draw, how often you made it, and how those hands went</small></button>
       <button class="menuCard" data-go="luck"><b>Skill vs luck</b><small>All-ins against their equity, suckouts for and against, and your result with the luck taken out</small></button>
+      <button class="menuCard" data-go="tend"><b>% Tendencies</b><small>What a player's check-raises, bets and raises have meant in the hands they showed: bluff, semi-bluff, medium or very strong</small></button>
       <button class="menuCard" data-go="lessons"><b>Lessons</b><small>Named groups of annotated hands, in teaching order</small></button>
     </div>
   </div>
@@ -292,6 +294,19 @@
   <div id="lkBody" class="screenBody"></div>
 </section>
 
+<section id="viewTend" class="screen">
+  <div class="screenHead shHead">
+    <b>% Tendencies</b>
+    <input type="search" id="tdWho" list="tdNames" placeholder="player…" title="Whose line" autocomplete="off">
+    <select id="tdGame" title="Game"></select>
+    <select id="tdLine" title="What they did"></select>
+    <select id="tdStreet" title="On which street"></select>
+    <input type="search" id="tdVs" list="tdNames" placeholder="against anyone" title="Only hands where this player was still in" autocomplete="off">
+    <datalist id="tdNames"></datalist>
+  </div>
+  <div id="tdBody" class="screenBody"></div>
+</section>
+
 <section id="viewMe" class="screen">
   <div class="screenHead"><b>Your numbers</b>
     <select id="meWho" title="Which of your profiles — every account in your hand histories and tournament results"></select>
@@ -362,7 +377,7 @@
 <script src="js/tsummary.js?v=20261022c"></script>
 <script src="js/playmoney.js?v=20261005a"></script>
 <script src="js/stats.js?v=20261101a"></script>
-<script src="js/home.js?v=20261101a"></script>
+<script src="js/home.js?v=20261101t"></script>
 <script src="js/tourneys.js?v=20261022c"></script>
 <script src="js/evtables.js?v=20261005a"></script>
 <script src="js/starthands.js?v=20261019a"></script>
@@ -370,11 +385,13 @@
 <script src="js/luckui.js?v=20261022a"></script>
 <script src="js/review.js?v=20261031a"></script>
 <script src="js/tiers.js?v=20261019a"></script>
+<script src="js/tendency.js?v=20261101u"></script>
+<script src="js/tendui.js?v=20261101v"></script>
 <script src="js/draws.js?v=20261017c"></script>
 <script src="js/plans.js?v=20261005a"></script>
 <script src="js/drawsolver.js?v=20261030a"></script>
 <script src="js/solver.js?v=20261101a"></script>
 <script src="js/solverui.js?v=20261101a"></script>
-<script src="js/app.js?v=20261101a"></script>
+<script src="js/app.js?v=20261101t"></script>
 </body>
 </html>
