@@ -29,6 +29,7 @@ The app opens on a menu, not a file dialog:
 * **Your numbers** — the same breakdown for you. Pick any of your profiles from the pull-down, and narrow everything with the advanced filters: when (last 7/30/90 days, 12 months, this month/year, custom dates), game or game type (stud, draw, Omaha, Hold'em, mixed events), buy-in range and knockouts — these narrow both your hands and your tournament results — plus table size (5+, 3–4, heads-up), your stack in big blinds and blind level, which narrow the hands only. Filters are remembered.
 * **Tournament Overview** — final standings of every tournament in your PokerStars "Tournament
   History" emails, and your record across them.
+* **Cash sessions** — every cash game sitting, worked out from the hands: when, where, how long and what it made.
 * **Starting hands** — every hand you were dealt, how often you play it and win with it, and whether it pays.
 * **Skill vs luck** — all-ins against their equity, suckouts for and against, and your result with the luck taken out.
 * **Lessons** — named, ordered groups of annotated hands.
@@ -704,6 +705,30 @@ read in one line under the action, with the hand on the table left out. Click it
 Not covered: draw games, because a shown hand is only what the player finished with, and what they
 held before the last draw is gone. Stud hands from histories with no upcards are also left out.
 
+## Cash sessions
+
+A tournament comes with a summary; a cash game comes with nothing but its hands, so the app works
+the sessions out. A **session** is one sitting: your hands in time order, across every table you had
+open, until you stop for longer than the break set on the screen (30 minutes to begin with; 15
+minutes, 1 hour and 2 hours are the other choices). Nothing is stored, so importing more hands
+changes the sessions by itself, and a file that overlaps one already imported joins it.
+
+The list on the left has every session with its result. **Overview** adds them up: net, sessions
+won, hands, BB per 100, time at the tables, an hourly figure, a running total, and the same results
+by game, stakes and table. Filters narrow it by game, stakes and date; a Razz filter shows the Razz
+inside each session, and the hourly figure goes away because the time isn't split by game.
+
+A session's page has its result, a hand-by-hand running total (click it to open that hand), the
+split by table and game when there was more than one, who else was at your tables and how they did,
+and every hand with what you dealt and what it made. **▶ Replay the hands** loads the session into
+the replayer. The replayer's pull-down lists the sessions too, and **Results ▸** on a cash hand opens
+its session.
+
+BB per 100 counts each hand in its own big blind (the big bet, in limit games), so mixed stakes add
+up fairly. Hourly is net over the time from first hand to last, however many tables were open.
+
+Real money and play chips are never added together.
+
 ## Tournament Overview (tournament history summaries)
 
 PokerStars will email the results of your last N tournaments (*Requests → Tournament History*).
@@ -926,6 +951,7 @@ js/review.js    the tournament review: key hands tagged, stack graph, solver pas
 js/luckui.js    the Skill vs luck screen and the summary box on a tournament's page
 js/tendency.js  % Tendencies: reads shown hands at the moment of each action as bluff, semi-bluff, medium or very strong
 js/tendui.js    the % Tendencies screen and the one-line read in the replayer
+js/cash.js      cash sessions: sittings worked out from the hands, and their screen
 js/home.js      main menu, library / players / your-numbers screens, backup & restore, Poker HUD sync
 js/lesson.js    lesson storage — markup, notes, narration timeline, audio, export/import
 js/markup.js    the annotation layer: tools, shapes, step binding, DOM-anchored targets

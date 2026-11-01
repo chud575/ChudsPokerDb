@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PokerStars Hand Replayer</title>
-<link rel="stylesheet" href="css/styles.css?v=20261101v">
+<link rel="stylesheet" href="css/styles.css?v=20261101w">
 </head>
 <body>
 
@@ -46,6 +46,7 @@
   <button data-go="players" title="Stats on everyone, kept separate by game">Players</button>
   <button data-go="me" title="The same breakdown, for you">Your numbers</button>
   <button data-go="tourneys" title="Every tournament's final standings, and your record across them">Tournaments</button>
+  <button data-go="cash" title="Every cash game sitting: when, where, how long and what it made">Cash sessions</button>
   <button data-go="starts" title="Every hand you were dealt — how often you play it, win with it, and whether it pays">Starting hands</button>
   <button data-go="draws" title="When you had a draw at a given point, how often you made it — and how those hands went">Draws</button>
   <button data-go="luck" title="All-ins against their equity, suckouts for and against, and your result with the luck taken out">Skill vs luck</button>
@@ -60,7 +61,7 @@
     <div class="filters">
       <div class="row loadRow">
         <select id="fTourney" title="Load a tournament from the library into the replayer — or the whole library"></select>
-        <button class="btn" id="tourBtn" title="This tournament’s standings and summary in the Tournament Overview">Results ▸</button>
+        <button class="btn" id="tourBtn" title="This tournament’s standings in the Tournament Overview, or this cash hand’s session">Results ▸</button>
       </div>
       <input type="search" id="fSearch" placeholder="search player, hand #, cards…">
       <div class="row">
@@ -184,6 +185,7 @@
       <button class="menuCard" data-go="players"><b>Player database</b><small>Stats on everyone, kept separate by game</small></button>
       <button class="menuCard" data-go="me"><b>Your numbers</b><small>The same breakdown, for you</small></button>
       <button class="menuCard" data-go="tourneys"><b>Tournament Overview</b><small>Every tournament's final standings, and your record across them</small></button>
+      <button class="menuCard" data-go="cash"><b>Cash sessions</b><small>Every cash game sitting: when, where, how long and what it made</small></button>
       <button class="menuCard" data-go="starts"><b>Starting hands</b><small>Every hand you were dealt — how often you play it, win with it, and whether it pays</small></button>
       <button class="menuCard" data-go="draws"><b>Draw performance</b><small>When you had a draw at a given street or draw, how often you made it, and how those hands went</small></button>
       <button class="menuCard" data-go="luck"><b>Skill vs luck</b><small>All-ins against their equity, suckouts for and against, and your result with the luck taken out</small></button>
@@ -246,6 +248,16 @@
     <div id="toList" class="plList"></div>
   </aside>
   <div id="toDetail" class="screenBody"></div>
+</section>
+
+<section id="viewCash" class="screen">
+  <aside class="plSide">
+    <div class="screenHead"><b>Cash sessions</b></div>
+    <select id="caAcct" title="Whose sessions to show"></select>
+    <input type="search" id="caSearch" placeholder="table, game, or a player in it…">
+    <div id="caList" class="plList"></div>
+  </aside>
+  <div id="caDetail" class="screenBody"></div>
 </section>
 
 <section id="viewStarts" class="screen">
@@ -377,8 +389,9 @@
 <script src="js/tsummary.js?v=20261022c"></script>
 <script src="js/playmoney.js?v=20261005a"></script>
 <script src="js/stats.js?v=20261101a"></script>
-<script src="js/home.js?v=20261101t"></script>
+<script src="js/home.js?v=20261101w"></script>
 <script src="js/tourneys.js?v=20261022c"></script>
+<script src="js/cash.js?v=20261101x"></script>
 <script src="js/evtables.js?v=20261005a"></script>
 <script src="js/starthands.js?v=20261019a"></script>
 <script src="js/luck.js?v=20261101b"></script>
@@ -392,6 +405,6 @@
 <script src="js/drawsolver.js?v=20261030a"></script>
 <script src="js/solver.js?v=20261101a"></script>
 <script src="js/solverui.js?v=20261101a"></script>
-<script src="js/app.js?v=20261101t"></script>
+<script src="js/app.js?v=20261101w"></script>
 </body>
 </html>

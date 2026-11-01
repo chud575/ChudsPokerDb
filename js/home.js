@@ -43,6 +43,7 @@
     if (v === 'replayer') { setTimeout(() => PSApp.redraw(), 20); fillLoader(); }
     if (v === 'lessons' && global.PSPlans) PSPlans.render();
     if (v === 'tourneys' && global.PSTourneys) PSTourneys.render();
+    if (v === 'cash' && global.PSCash) PSCash.render();
     if (v === 'starts' && global.PSStart) PSStart.render();
     if (v === 'luck' && global.PSLuckUI) PSLuckUI.render();
     if (v === 'draws' && global.PSDraws) PSDraws.render();
@@ -132,8 +133,16 @@
     const ts = (await PSDB.allTourneys()).sort((a, b) => b.last - a.last);
     const sumIds = new Set((await PSDB.allSummaries()).map(x => x.id));
     const n = await PSDB.count();
-    $('#libCount').textContent = fmt(n) + ' hands · ' + ts.length + ' tournaments';
-    if (!ts.length) { body.appendChild(el('div', 'empty', 'Nothing imported yet — use “Import files”.')); return; }
+    const cash = n - ts.reduce((a, t) => a + (t.hands || 0), 0);
+    $('#libCount').textContent = fmt(n) + ' hands · ' + ts.length + ' tournaments' + (cash > 0 ? ' · ' + fmt(cash) + ' cash hands' : '');
+    if (cash > 0) {
+      const p = el('div', 'dim trNote', fmt(cash) + ' cash hands are in the library too — ');
+      const a = el('a', 'pl', 'see them as sessions');
+      a.href = '#'; a.onclick = e => { e.preventDefault(); show('cash'); };
+      p.appendChild(a);
+      body.appendChild(p);
+    }
+    if (!ts.length) { if (!cash) body.appendChild(el('div', 'empty', 'Nothing imported yet — use “Import files”.')); return; }
     const tbl = el('table', 'tbl');
     const head = tbl.insertRow();
     ['Tournament', 'When', 'Games', 'Hands', 'Your finish', ''].forEach(h => {
@@ -343,11 +352,21 @@
         (fin ? ' · ' + PSTSum.ord(fin) : '') + ' · #' + t.id, t.id));
     });
     sel.appendChild(og);
+    if (global.PSCash && global.PSTSum) {
+      const cs = await PSCash.allSessions();
+      if (cs.length) {
+        const cg = document.createElement('optgroup');
+        cg.label = 'Cash sessions — ' + cs.length;
+        cs.forEach(s => cg.appendChild(new Option(new Date(s.first).toLocaleDateString() + ' · ' + PSCash.labelOf(s) + ' · ' + s.n + ' hands · ' + PSCash.plus(s.net, s.unit), 'cash:' + s.id)));
+        sel.appendChild(cg);
+      }
+    }
     sel.value = scope;
     sel.style.display = '';
   }
   async function resultsForCurrent() {
     const h = PSApp.hand();
+    if (h && !h.tourney && global.PSCash) { PSCash.showHand(h.id); show('cash'); return; }
     if (!h || !h.tourney) { toast('This hand is not from a tournament.', 'info'); return; }
     const have = (await PSDB.getSummary(h.tourney)) || (await playTourneys()).some(t => t.id === h.tourney);
     if (!have) { toast('No results for tournament #' + h.tourney + ' yet — import its PokerStars Tournament History to see the standings.', 'info'); return; }
@@ -395,8 +414,9 @@
     try { pref = localStorage.getItem('psreplayer.autoimport'); } catch (e) { }
     let yes = pref === 'always';
     if (!pref) {
-      const t = hands.filter((h, i, a) => a.findIndex(x => x.tourney === h.tourney) === i).length;
-      yes = confirm('Add these ' + hands.length + ' hands (' + t + ' tournament' + (t === 1 ? '' : 's') +
+      const t = new Set(hands.map(h => h.tourney).filter(Boolean)).size, c = hands.filter(h => !h.tourney).length;
+      const kinds = [t ? t + ' tournament' + (t === 1 ? '' : 's') : '', c ? c + ' cash' : ''].filter(Boolean).join(', ');
+      yes = confirm('Add these ' + hands.length + ' hands (' + kinds +
         ') to your library?\n\nThey will be there every time you open the app — you will not need to load the file again.');
       if (yes && confirm('Always add imported files to the library without asking?')) {
         try { localStorage.setItem('psreplayer.autoimport', 'always'); } catch (e) { }
@@ -432,6 +452,7 @@
     if (view === 'players') await refreshPlayers();
     if (view === 'me') await openMe();
     if (view === 'tourneys' && global.PSTourneys) await PSTourneys.render();
+    if (view === 'cash' && global.PSCash) await PSCash.render();
     if (view === 'starts' && global.PSStart) await PSStart.render();
     if (view === 'luck' && global.PSLuckUI) await PSLuckUI.render();
     if (view === 'tend' && global.PSTendUI) await PSTendUI.render();
@@ -937,9 +958,9 @@
      panel below the fold — bring it up (same query as PHONE_MQ in app.js) */
   function phoneDetailScroll(e) {
     if (!global.matchMedia('(max-width:820px), (max-height:500px)').matches) return;
-    const list = e.target.closest('#viewPlayers .plSide, #viewTourneys .plSide, #viewStarts .shMain');
+    const list = e.target.closest('#viewPlayers .plSide, #viewTourneys .plSide, #viewCash .plSide, #viewStarts .shMain');
     if (!list || !e.target.closest('.plRow, .toRow, tbody tr') || e.target.closest('th, input, select, button, label')) return;
-    const d = list.parentElement.querySelector('#plDetail, #toDetail, #shDetail');
+    const d = list.parentElement.querySelector('#plDetail, #toDetail, #caDetail, #shDetail');
     if (d) setTimeout(() => d.scrollIntoView({ block: 'start' }), 80);
   }
 
@@ -962,7 +983,7 @@
     $('#plGame').onchange = () => refreshPlayers();
     $('#plSort').onchange = () => refreshPlayers();
     $('#meWho').onchange = e => { try { localStorage.setItem(ME_KEY, e.target.value); } catch (x) { } openPlayer(e.target.value, true); };
-    $('#fTourney').onchange = e => { const v = e.target.value; if (v === 'library') openLibrary(); else if (v) openTourney(v); };
+    $('#fTourney').onchange = e => { const v = e.target.value; if (v === 'library') openLibrary(); else if (/^cash:/.test(v)) PSCash.replayById(v.slice(5)); else if (v) openTourney(v); };
     $('#tourBtn').onclick = resultsForCurrent;
     $('#libBackup').onclick = backup;
     $('#libHud').onclick = exportHud;

@@ -39,6 +39,7 @@ body.view-replayer #tabs [data-go=replayer],
 body.view-players  #tabs [data-go=players],
 body.view-me       #tabs [data-go=me],
 body.view-tourneys #tabs [data-go=tourneys],
+body.view-cash     #tabs [data-go=cash],
 body.view-starts   #tabs [data-go=starts],
 body.view-luck     #tabs [data-go=luck],
 body.view-draws    #tabs [data-go=draws],
@@ -592,7 +593,7 @@ body.presenting #solverBand{display:none}
 .svCtx{font-size:10.5px;color:var(--dim2);margin-top:2px;font-variant-numeric:tabular-nums}
 
 /* ---------- tournament overview (PokerStars "Tournament History" summaries) ---------- */
-body.view-tourneys #viewTourneys{display:grid;grid-template-columns:320px 1fr;height:calc(var(--vh) - var(--chrome))}
+body.view-tourneys #viewTourneys,body.view-cash #viewCash{display:grid;grid-template-columns:320px 1fr;height:calc(var(--vh) - var(--chrome))}
 #viewTourneys .screenHead .btn{padding:3px 9px;font-size:11px}
 .toRow{padding:6px 10px;border-bottom:1px solid #1b222c;cursor:pointer}
 .toRow:hover{background:#1b222c}
@@ -636,8 +637,8 @@ a.pl:hover{color:var(--accent);text-decoration:underline}
 .kpi.dn b{color:var(--bad)}
 .trNote{font-size:11px;margin:2px 0 10px}
 .trEvents td{font-variant-numeric:tabular-nums}
-.trBox .tbl td,#toDetail .tbl td{white-space:nowrap}
-.trBox .tbl td:first-child,#toDetail .tbl td:first-child{white-space:normal}
+.trBox .tbl td,#toDetail .tbl td,#caDetail .tbl td{white-space:nowrap}
+.trBox .tbl td:first-child,#toDetail .tbl td:first-child,#caDetail .tbl td:first-child{white-space:normal}
 h4.sec{margin:16px 0 6px}
 body.blackbg .toHead,body.blackbg .kpi,body.blackbg .toRaw{background:#0d0d0d;border-color:#242424}
 body.blackbg .toRes tr.me td{background:#1d1808}
@@ -889,19 +890,19 @@ body.presenting #tendRead{display:none}
 
   /* every screen: as tall as its content, the page scrolls */
   .screen,body.view-replayer main{height:auto !important;min-height:calc(var(--vh) - var(--chrome))}
-  body.view-players #viewPlayers,body.view-tourneys #viewTourneys,body.view-starts #viewStarts{
+  body.view-players #viewPlayers,body.view-tourneys #viewTourneys,body.view-cash #viewCash,body.view-starts #viewStarts{
     grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto}
-  #viewPlayers > *:first-child,#viewTourneys > *:first-child{max-height:46vh;border-right:0;border-bottom:1px solid var(--line)}
+  #viewPlayers > *:first-child,#viewTourneys > *:first-child,#viewCash > *:first-child{max-height:46vh;border-right:0;border-bottom:1px solid var(--line)}
   .screenHead{flex-wrap:wrap;gap:8px;padding:9px 12px}
   .screenBody{padding:12px 10px}
   .menuWrap{padding:24px 16px}
   .modalBox{width:calc(100vw - 20px);max-height:calc(var(--vh) - 40px);overflow:auto}
 
   /* a wide table scrolls in its own box; the text around it stays on the screen */
-  #toDetail{overflow-x:hidden}
+  #toDetail,#caDetail{overflow-x:hidden}
   .toBar{flex-wrap:wrap}
   .toSum{padding:2px 10px 10px}
-  #toDetail table.tbl{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  #toDetail table.tbl,#caDetail table.tbl{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
 
   /* replayer: one column — table, controls, then the action log */
   main{grid-template-columns:minmax(0,1fr)}
