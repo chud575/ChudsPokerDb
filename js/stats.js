@@ -32,6 +32,7 @@
       won: 0, wonNoShowdown: 0,
       bets: 0, raises: 0, calls: 0, checks: 0, folds: 0,
       net: 0, potsWon: 0, chipsWon: 0,
+      moneyHands: 0, moneyNet: 0,      // real-money cash hands only: tournament chips aren't money
       draws: 0, drawCards: 0, pat: 0,
       bringIn: 0, completed: 0,
       allIn: 0,
@@ -50,6 +51,7 @@
 
     const net = global.PSEngine.netFor(h);
     for (const n in net) if (out[n]) out[n].net = net[n];
+    if (h.isCash && /[$€£]/.test(h.stakes)) for (const n in net) if (out[n]) { out[n].moneyHands = 1; out[n].moneyNet = net[n]; }
 
     const sawShowdown = h.streets.includes('showdown');
     const folded = new Set();
@@ -265,6 +267,7 @@
           for (const s of summary(r)) {
             if (HUD_STATS.includes(s.k) && s.raw != null) stats[s.k] = [Math.round(s.raw * 10) / 10, s.d];
           }
+          if (r.moneyHands) stats.pl = [Math.round(r.moneyNet * 100) / 100, r.moneyHands];
           games[key] = { label: r.label, hands: r.hands, stats: stats };
         }
         if (Object.keys(games).length) players[name] = games;
