@@ -14,6 +14,12 @@
    how many cards they took; your draw names the cards you threw (by their
    place in your hand) and the ones you got.  Anything the engine cannot
    follow — all-ins, dead blinds, 7+ players — comes back as a skipped spot.
+
+   Someone else's hand: a history has only what they finished with, so nothing
+   before their last draw can be read.  From there on it can, exactly: the brains
+   go by the hand now and the public betting and draw counts, never by what was
+   held or thrown earlier.  So the earlier draws are played with stand-in cards
+   that come back out: the counts are true and the hand ends as the one shown.
    =========================================================================== */
 (function (global) {
   'use strict';
@@ -65,14 +71,33 @@
 
   const BET = { fold: 0, check: 1, call: 1, bet: 2, raise: 2 };
 
+  /* a draw history that ends in the hand shown; from: draws made before that hand is known */
+  function standIn(hand, who, shown) {
+    const fin = shown.map(cardId);
+    if (fin.some(c => c == null)) return null;
+    const spare = [];
+    for (let i = 0; i < 52; i++) if (!fin.includes(i)) spare.push(i);
+    const counts = hand.events.filter(e => (e.t === 'discard' || e.t === 'pat') && e.player === who).map(e => e.t === 'pat' ? 0 : e.count || 0);
+    const draws = [];
+    let now = fin, from = 0;
+    for (let i = counts.length - 1; i >= 0; i--) {
+      const k = counts[i], toss = spare.splice(0, k);
+      if (k && !from) from = i + 1;
+      draws[i] = { toss: toss, got: now.slice(0, k) };
+      now = toss.concat(now.slice(k));
+    }
+    return { dealt: now, draws: draws, from: from };
+  }
+
   /* every decision you made: the builder payload for the spot just before it */
-  function spots(hand, steps, hero, g) {
+  function spots(hand, steps, hero, g, known) {
     const out = [];
     const seat = seating(hand);
     const byEi = new Map();
     steps.forEach(s => { if (s.ei != null) byEi.set(s.ei, s); });
     const ev = hand.events;
-    let mine = null, dealt = null;           // your hand now (in the engine's order), and as dealt
+    const plan = known && !ev.some(e => e.t === 'deal' && e.player === hero) ? standIn(hand, hero, known) : null;
+    let mine = plan ? plan.dealt : null, dealt = mine;   // your hand now (in the engine's order), and as dealt
     const events = [];
     let broken = seat.why || null, myDraws = 0;
     for (let i = 0; i < ev.length; i++) {
@@ -85,22 +110,23 @@
         const s = byEi.get(i);
         const pre = s ? (steps[s.i - 1] || steps[0]) : null;
         const n = isDraw ? (e.t === 'pat' ? 0 : e.count) : null;
+        const gone = plan && myDraws < plan.from;
         const spot = {
           step: s ? s.i : null, ei: i, street: pre ? pre.street : '',
           streetLabel: isDraw ? ['1st', '2nd', '3rd'][myDraws] + ' draw' : pre ? pre.streetLabel : '',
-          game: g, hero: hero, heroCards: (mine || []).map(cardLabel), oppBoards: [], opponents: 0,
+          game: g, hero: hero, heroCards: gone ? [] : (mine || []).map(cardLabel), oppBoards: [], opponents: 0,
           toCall: 0, pot: 0, board: [], kind: isDraw ? 'draw' : 'bet',
           actual: isDraw ? (n ? 'draw ' + n : 'pat') : e.verb,
           actualLabel: isDraw ? (n ? 'draw ' + n + (e.cards ? ' (' + e.cards.join(' ') + ')' : '') : 'stand pat')
                               : e.verb + (e.to ? ' to ' + e.to : e.amount ? ' ' + e.amount : ''),
           drawn: n,
-          payload: broken || !mine || mine.some(x => x == null) || !seat.order ? null : {
+          payload: broken || gone || !mine || mine.some(x => x == null) || !seat.order ? null : {
             game: g.id, players: seat.order.length, heroSeat: seat.order.indexOf(hero),
             hero: dealt, events: events.slice(),
           },
         };
         if (pre) spot.opponents = pre.players.filter(p => p.inHand && !p.folded && p.name !== hero).length;
-        if (!spot.payload) spot.skip = broken || 'your cards are not in the history';
+        if (!spot.payload) spot.skip = broken || (gone ? 'what they held before their last draw is gone' : 'your cards are not in the history');
         if (s) out.push(spot);
       }
       if (isDraw && e.player === hero) myDraws++;
@@ -110,12 +136,13 @@
       else if (e.player !== hero) events.push({ t: 'vdraw', k: e.t === 'pat' ? 0 : e.count });
       else if (mine) {
         if (e.t === 'pat' || !e.count) { events.push({ t: 'hdraw', discards: [] }); continue; }
-        const tossed = (e.cards || []).map(cardId);
+        const sub = plan && plan.draws[myDraws - 1];
+        const tossed = sub ? sub.toss : (e.cards || []).map(cardId);
         const idx = tossed.map(c => mine.indexOf(c));
         // the cards you got: your next deal line, minus the ones you kept
         const nx = ev.slice(i + 1).find(x => x.t === 'deal' && x.player === hero);
         const kept = mine.filter(c => !tossed.includes(c));
-        const got = nx ? nx.all.map(cardId).filter(c => !kept.includes(c)) : [];
+        const got = sub ? sub.got : nx ? nx.all.map(cardId).filter(c => !kept.includes(c)) : [];
         if (idx.some(x => x < 0) || got.length !== tossed.length) { broken = broken || 'your draw is not fully in the history'; continue; }
         events.push({ t: 'hdraw', discards: idx, cards: got });
         mine = kept.concat(got);

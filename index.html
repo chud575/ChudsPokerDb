@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PokerStars Hand Replayer</title>
-<link rel="stylesheet" href="css/styles.css?v=20261101w">
+<link rel="stylesheet" href="css/styles.css?v=20261101y">
 </head>
 <body>
 
@@ -51,6 +51,7 @@
   <button data-go="draws" title="When you had a draw at a given point, how often you made it — and how those hands went">Draws</button>
   <button data-go="luck" title="All-ins against their equity, suckouts for and against, and your result with the luck taken out">Skill vs luck</button>
   <button data-go="tend" title="What a player's bets and raises have meant in the hands they showed: bluff, semi-bluff, medium or very strong">% Tendencies</button>
+  <button data-go="mist" title="How often each player's play parted from the solver, in the hands where their cards were seen">Mistake rate</button>
   <button data-go="lessons" title="Named groups of annotated hands, in teaching order">Lessons</button>
 </nav>
 
@@ -190,6 +191,7 @@
       <button class="menuCard" data-go="draws"><b>Draw performance</b><small>When you had a draw at a given street or draw, how often you made it, and how those hands went</small></button>
       <button class="menuCard" data-go="luck"><b>Skill vs luck</b><small>All-ins against their equity, suckouts for and against, and your result with the luck taken out</small></button>
       <button class="menuCard" data-go="tend"><b>% Tendencies</b><small>What a player's check-raises, bets and raises have meant in the hands they showed: bluff, semi-bluff, medium or very strong</small></button>
+      <button class="menuCard" data-go="mist"><b>Mistake rate</b><small>How often each player's play parted from the solver, in the hands where their cards were seen</small></button>
       <button class="menuCard" data-go="lessons"><b>Lessons</b><small>Named groups of annotated hands, in teaching order</small></button>
     </div>
   </div>
@@ -319,6 +321,26 @@
   <div id="tdBody" class="screenBody"></div>
 </section>
 
+<section id="viewMist" class="screen">
+  <aside class="plSide">
+    <div class="screenHead"><b>Mistake rate</b></div>
+    <select id="miGame" title="Game"></select>
+    <select id="miMin" title="Leave out players with fewer graded decisions">
+      <option value="10">10+ decisions</option>
+      <option value="30">30+ decisions</option>
+      <option value="100">100+ decisions</option>
+      <option value="300">300+ decisions</option>
+    </select>
+    <input type="search" id="miFind" placeholder="find a player…" autocomplete="off">
+    <div id="miList" class="plList"></div>
+  </aside>
+  <div id="miDetail" class="screenBody">
+    <div class="miBar"><button id="miRun" class="btn" title="Ask the solver about every seen hand not graded yet"></button><span id="miStatus" class="dim"></span></div>
+    <div id="miSum"></div>
+    <div id="miOne"></div>
+  </div>
+</section>
+
 <section id="viewMe" class="screen">
   <div class="screenHead"><b>Your numbers</b>
     <select id="meWho" title="Which of your profiles — every account in your hand histories and tournament results"></select>
@@ -389,7 +411,7 @@
 <script src="js/tsummary.js?v=20261022c"></script>
 <script src="js/playmoney.js?v=20261005a"></script>
 <script src="js/stats.js?v=20261101b"></script>
-<script src="js/home.js?v=20261101w"></script>
+<script src="js/home.js?v=20261102a"></script>
 <script src="js/tourneys.js?v=20261022c"></script>
 <script src="js/cash.js?v=20261101x"></script>
 <script src="js/evtables.js?v=20261005a"></script>
@@ -402,9 +424,12 @@
 <script src="js/tendui.js?v=20261101v"></script>
 <script src="js/draws.js?v=20261017c"></script>
 <script src="js/plans.js?v=20261005a"></script>
-<script src="js/drawsolver.js?v=20261030a"></script>
-<script src="js/solver.js?v=20261101a"></script>
+<script src="js/drawsolver.js?v=20261102b"></script>
+<script src="js/solver.js?v=20261102b"></script>
 <script src="js/solverui.js?v=20261101a"></script>
-<script src="js/app.js?v=20261101w"></script>
+<script src="js/mistakes.js?v=20261102b"></script>
+<script src="js/mistakeui.js?v=20261102b"></script>
+<script src="js/handreview.js?v=20261102b"></script>
+<script src="js/app.js?v=20261101y"></script>
 </body>
 </html>

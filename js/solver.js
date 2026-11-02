@@ -106,12 +106,15 @@
     return { seats: order.length, hero: hi, actions: actions };
   }
 
-  /* ---------- pull every hero decision out of a replayed hand ---------- */
-  function spots(hand, steps, heroName) {
+  /* ---------- pull every hero decision out of a replayed hand ----------
+     known: the player's whole hand, from a showdown, when heroName is someone whose
+     hidden cards the replay does not have.  Only their own cards change: what they
+     are read against is still what that seat could see. */
+  function spots(hand, steps, heroName, known) {
     const g = support(hand.game.key);
     const out = [];
     if (!g) return out;
-    if (g.fam === 'draw') return PSDrawSolver.spots(hand, steps, heroName || hand.hero, g);
+    if (g.fam === 'draw') return PSDrawSolver.spots(hand, steps, heroName || hand.hero, g, known);
     const hero = heroName || hand.hero;
     if (!hero) return out;
     const sb = +hand.sb || 0;
@@ -129,7 +132,8 @@
       const h = pre.players.find(p => p.name === hero);
       if (!h) return;
 
-      const cards = h.cards.filter(c => c.c).map(c => c.c);
+      const seen = h.cards.filter(c => c.c).map(c => c.c);
+      const cards = !known ? seen : g.fam === 'stud' ? known.slice(0, h.cards.length) : known.slice();
       const live = pre.players.filter(p => p.inHand && !p.folded && p.name !== hero);
       const ups = p => p.cards.filter(c => c.c && c.up).map(c => c.c);
       // folded players' upcards are out of the deck for everyone still in
@@ -156,6 +160,7 @@
       };
       if (g.id === 'holdem') spot.line = lineFor(hand, i, hero);
       if (!valid(spot)) { spot.skip = reasonInvalid(spot); }
+      else if (seen.some(c => !cards.includes(c))) spot.skip = 'the shown cards do not fit the table';
       out.push(spot);
     });
     return out;
@@ -336,8 +341,20 @@
     return { grade: by[r.verdict] || 'none', why: r.verdict ? undefined : 'no answer from the solver' };
   }
 
-  async function assess(hand, steps, heroName, onEach) {
-    const list = spots(hand, steps, heroName);
+  /* how often the solver itself makes the play that was made, 0-1; null when it only names one play */
+  function shareOf(r) {
+    const a = r.advice || {}, m = norm(r.actual);
+    const k = m === 'fold' ? 'fold' : m === 'aggressive' ? 'aggressive' : 'passive';
+    if (!a.perVillain) return a.classProbs && a.classProbs[k] != null ? a.classProbs[k] : null;
+    const reads = a.perVillain.filter(v => v.action && v.trained && v.probs).map(v => Object.keys(v.probs).reduce((t, x) => {
+      const c = norm(x);
+      return t + ((c === 'fold' ? 'fold' : c === 'aggressive' ? 'aggressive' : 'passive') === k ? v.probs[x] : 0);
+    }, 0));
+    return reads.length ? Math.max.apply(null, reads) : null;
+  }
+
+  async function assess(hand, steps, heroName, onEach, known) {
+    const list = spots(hand, steps, heroName, known);
     const lim = limitOnly(hand.game.betting) || noBoards(hand);
     const out = [];
     for (const s of list) {
@@ -353,5 +370,5 @@
     return out;
   }
 
-  global.PSSolver = { url, setUrl, ping, support, limitOnly, noBoards, spots, advise, assess, verdict, norm, GAMES, DEF };
+  global.PSSolver = { url, setUrl, ping, support, limitOnly, noBoards, spots, advise, assess, verdict, shareOf, norm, GAMES, DEF };
 })(window);

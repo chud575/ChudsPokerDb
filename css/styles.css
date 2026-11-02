@@ -44,6 +44,7 @@ body.view-starts   #tabs [data-go=starts],
 body.view-luck     #tabs [data-go=luck],
 body.view-draws    #tabs [data-go=draws],
 body.view-tend     #tabs [data-go=tend],
+body.view-mist     #tabs [data-go=mist],
 body.view-lessons  #tabs [data-go=lessons]{
   color:#fff;background:var(--bg2);border-bottom-color:var(--accent);font-weight:600;
 }
@@ -594,6 +595,7 @@ body.presenting #solverBand{display:none}
 
 /* ---------- tournament overview (PokerStars "Tournament History" summaries) ---------- */
 body.view-tourneys #viewTourneys,body.view-cash #viewCash{display:grid;grid-template-columns:320px 1fr;height:calc(var(--vh) - var(--chrome))}
+body.view-mist #viewMist{display:grid;grid-template-columns:400px 1fr;height:calc(var(--vh) - var(--chrome))}
 #viewTourneys .screenHead .btn{padding:3px 9px;font-size:11px}
 .toRow{padding:6px 10px;border-bottom:1px solid #1b222c;cursor:pointer}
 .toRow:hover{background:#1b222c}
@@ -843,6 +845,21 @@ body.blackbg .drBox{background:#0d0d0d;border-color:#242424}
 
 body.view-replayer{overflow-y:auto}
 
+/* ---------- mistake rate ---------- */
+.miBar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-bottom:4px;font-size:12px;line-height:1.45}
+.miName{margin:12px 0 2px;font-size:15px}
+.miTbl{width:100%}
+.miTbl td{font-variant-numeric:tabular-nums;white-space:nowrap}
+.miTbl td:first-child{white-space:normal;word-break:break-word}
+.miTbl tbody tr{cursor:pointer}
+.miTbl tr.me td:first-child{font-weight:700}
+.miTbl tr.on td{background:#15263a}
+.miTbl td.up{color:var(--good)}.miTbl td.dn{color:var(--bad)}
+.miDetailTbl tr.game td{font-weight:700;background:var(--bg2)}
+.miDetailTbl tr.street td:first-child{padding-left:18px}
+#miDetail .tbl td{white-space:nowrap}
+#miDetail .tbl td:first-child{white-space:normal}
+
 /* ---------- % tendencies ---------- */
 body.view-tend #viewTend{display:flex;flex-direction:column;height:calc(var(--vh) - var(--chrome))}
 #tdWho,#tdVs{width:150px}
@@ -890,19 +907,19 @@ body.presenting #tendRead{display:none}
 
   /* every screen: as tall as its content, the page scrolls */
   .screen,body.view-replayer main{height:auto !important;min-height:calc(var(--vh) - var(--chrome))}
-  body.view-players #viewPlayers,body.view-tourneys #viewTourneys,body.view-cash #viewCash,body.view-starts #viewStarts{
+  body.view-players #viewPlayers,body.view-tourneys #viewTourneys,body.view-cash #viewCash,body.view-mist #viewMist,body.view-starts #viewStarts{
     grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto}
-  #viewPlayers > *:first-child,#viewTourneys > *:first-child,#viewCash > *:first-child{max-height:46vh;border-right:0;border-bottom:1px solid var(--line)}
+  #viewPlayers > *:first-child,#viewTourneys > *:first-child,#viewCash > *:first-child,#viewMist > *:first-child{max-height:46vh;border-right:0;border-bottom:1px solid var(--line)}
   .screenHead{flex-wrap:wrap;gap:8px;padding:9px 12px}
   .screenBody{padding:12px 10px}
   .menuWrap{padding:24px 16px}
   .modalBox{width:calc(100vw - 20px);max-height:calc(var(--vh) - 40px);overflow:auto}
 
   /* a wide table scrolls in its own box; the text around it stays on the screen */
-  #toDetail,#caDetail{overflow-x:hidden}
+  #toDetail,#caDetail,#miDetail{overflow-x:hidden}
   .toBar{flex-wrap:wrap}
   .toSum{padding:2px 10px 10px}
-  #toDetail table.tbl,#caDetail table.tbl{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  #toDetail table.tbl,#caDetail table.tbl,#miDetail table.tbl{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
 
   /* replayer: one column — table, controls, then the action log */
   main{grid-template-columns:minmax(0,1fr)}

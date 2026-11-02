@@ -30,6 +30,7 @@ The app opens on a menu, not a file dialog:
 * **Tournament Overview** — final standings of every tournament in your PokerStars "Tournament
   History" emails, and your record across them.
 * **Cash sessions** — every cash game sitting, worked out from the hands: when, where, how long and what it made.
+* **Mistake rate** — how often each player's play parted from the solver, in the hands where their cards were seen.
 * **Starting hands** — every hand you were dealt, how often you play it and win with it, and whether it pays.
 * **Skill vs luck** — all-ins against their equity, suckouts for and against, and your result with the luck taken out.
 * **Lessons** — named, ordered groups of annotated hands.
@@ -667,6 +668,42 @@ many are suited; Omaha by ranks and suit shape). Where the table splits a shape 
 tell apart (which two cards of a double-suited Omaha hand share a suit; which two of a stud hand),
 the variants are averaged. `tools/make_evdata.py` rebuilds the tables from a HORSE+ folder.
 
+## Mistake rate
+
+How often does each player's play part from the solver? This screen answers from the hands where
+their cards were seen: a showdown, or a hand exposed before one. Each decision they made in those
+hands is put back to that moment and read from their seat, with only what they could see.
+
+Press **Grade N hands** to run it. It needs the solvers (HORSE+ for stud and flop games, the Triple
+Draw server for draw games), takes a while over a whole library, and can be stopped at any time.
+Grades are kept, so the next run only asks about new hands.
+
+A mistake is a play that is not the solver's top play and that it makes under 25% of the time, the
+same test as the solver band and the tournament review. A big mistake is one it makes under 5%. In
+multiway stud, a play that fits the read against some villains and not others counts as half.
+
+Each player gets a rate with its ± margin, and **vs field**: the gap to the other players on the
+same games and streets, so a player's game mix does not decide their rank. In draw games your own
+hands are graded from the deal and everyone else's only from their last draw, so vs field uses just
+the decisions both sides have; the plain rate is not a fair match there. Click a player for the
+breakdown by game and street, what kind of mistakes they were, and the hands, biggest first. A row
+opens that hand at that moment.
+
+Read it with these limits in mind:
+
+- Only shown hands count. A player at showdown has not folded that hand, and a bluff that works is
+  never turned over, so this cannot see folding too much. Compare players; don't read one rate alone.
+- No-limit and pot-limit hands, and games with no solver, are not graded. They are listed for each
+  player under "Not graded".
+- Stud from a site that does not print the upcards (Phenom) cannot be graded.
+- Draw hands are graded from a player's last draw onward. A shown hand is only what they finished
+  with. The brains go by the current hand and the public action, so those spots are exact: the
+  earlier draws are replayed with the true counts and stand-in cards.
+- After the last draw the draw brains key on hand rank, so strong made hands are graded like any
+  other. Rare spots the re-solve never reached keep the old answer, which cannot tell the nuts from
+  a rough ten: about 1% of real last-round spots, mostly pots with four or more players.
+- The solver knows nothing of stack depth, payouts or bounties.
+
 ## % Tendencies
 
 When a player check-raises before 7th street, what does it mean? This screen answers from the
@@ -951,6 +988,8 @@ js/review.js    the tournament review: key hands tagged, stack graph, solver pas
 js/luckui.js    the Skill vs luck screen and the summary box on a tournament's page
 js/tendency.js  % Tendencies: reads shown hands at the moment of each action as bluff, semi-bluff, medium or very strong
 js/tendui.js    the % Tendencies screen and the one-line read in the replayer
+js/mistakes.js  Mistake rate: grades every shown hand's decisions against the solvers, per player
+js/mistakeui.js the Mistake rate screen
 js/cash.js      cash sessions: sittings worked out from the hands, and their screen
 js/home.js      main menu, library / players / your-numbers screens, backup & restore, Poker HUD sync
 js/lesson.js    lesson storage — markup, notes, narration timeline, audio, export/import

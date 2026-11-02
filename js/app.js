@@ -1069,5 +1069,6 @@
   if (global.PSPlans) PSPlans.init();
   if (global.PSSolverUI) PSSolverUI.init();
   if (global.PSTendUI) PSTendUI.init();
+  if (global.PSMistakeUI) PSMistakeUI.init();
     if (global.PSCash) PSCash.init();
 })(window);

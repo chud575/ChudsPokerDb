@@ -48,6 +48,7 @@
     if (v === 'luck' && global.PSLuckUI) PSLuckUI.render();
     if (v === 'draws' && global.PSDraws) PSDraws.render();
     if (v === 'tend' && global.PSTendUI) PSTendUI.render();
+    if (v === 'mist' && global.PSMistakeUI) PSMistakeUI.render();
   }
 
   /* ---------- library ---------- */
@@ -235,23 +236,28 @@
      HUD is not running the request simply fails and nothing happens. */
   const HUD = 'http://127.0.0.1:47311';   // Bridge.port in the HUD
   let hudBusy = false;
+  async function hudCollect() {
+    const after = (await PSDB.getMeta('hudSeq')) || 0;
+    let got;
+    try { got = await (await fetch(HUD + '/recorded?after=' + after)).json(); } catch (e) { return false; }
+    if (got.seq === after) return true;
+    let added = 0;
+    for (const f of got.files) added += (await PSDB.addHands(PSParser.parseFile(f.text, f.name))).added;
+    await PSDB.setMeta('hudSeq', got.seq);    // only once they are stored, so a failure retries
+    if (!added) return true;
+    dropCache();
+    const lib = await ensureLibrary();
+    await fetch(HUD + '/stats', { method: 'POST', body: JSON.stringify(PSStats.overlaySnapshot(lib.hands)) });
+    toast('Recorded ' + added + ' new hands from the Table HUD');
+    refreshHome();
+    return true;
+  }
+
   async function hudSync() {
     if (!libOk || hudBusy) return;
     hudBusy = true;
     try {
-      const after = (await PSDB.getMeta('hudSeq')) || 0;
-      let got;
-      try { got = await (await fetch(HUD + '/recorded?after=' + after)).json(); } catch (e) { return; }
-      if (got.seq === after) return;
-      let added = 0;
-      for (const f of got.files) added += (await PSDB.addHands(PSParser.parseFile(f.text, f.name))).added;
-      await PSDB.setMeta('hudSeq', got.seq);    // only once they are stored, so a failure retries
-      if (!added) return;
-      dropCache();
-      const lib = await ensureLibrary();
-      await fetch(HUD + '/stats', { method: 'POST', body: JSON.stringify(PSStats.overlaySnapshot(lib.hands)) });
-      toast('Recorded ' + added + ' new hands from the Table HUD');
-      refreshHome();
+      if (await hudCollect()) await PSHandReview.sync((await ensureLibrary()).hands, HUD);
     } catch (e) {
       console.warn('HUD sync failed', e);
     } finally { hudBusy = false; }
@@ -456,6 +462,7 @@
     if (view === 'starts' && global.PSStart) await PSStart.render();
     if (view === 'luck' && global.PSLuckUI) await PSLuckUI.render();
     if (view === 'tend' && global.PSTendUI) await PSTendUI.render();
+    if (view === 'mist' && global.PSMistakeUI) await PSMistakeUI.render();
   }
 
   /* play-money tournaments as summaries (playmoney.js); a real summary wins */
@@ -958,9 +965,9 @@
      panel below the fold — bring it up (same query as PHONE_MQ in app.js) */
   function phoneDetailScroll(e) {
     if (!global.matchMedia('(max-width:820px), (max-height:500px)').matches) return;
-    const list = e.target.closest('#viewPlayers .plSide, #viewTourneys .plSide, #viewCash .plSide, #viewStarts .shMain');
+    const list = e.target.closest('#viewPlayers .plSide, #viewTourneys .plSide, #viewCash .plSide, #viewMist .plSide, #viewStarts .shMain');
     if (!list || !e.target.closest('.plRow, .toRow, tbody tr') || e.target.closest('th, input, select, button, label')) return;
-    const d = list.parentElement.querySelector('#plDetail, #toDetail, #caDetail, #shDetail');
+    const d = list.parentElement.querySelector('#plDetail, #toDetail, #caDetail, #miDetail, #shDetail');
     if (d) setTimeout(() => d.scrollIntoView({ block: 'start' }), 80);
   }
 
