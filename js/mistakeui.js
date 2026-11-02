@@ -251,7 +251,7 @@
     catch (e) { $('#miList').textContent = 'The library could not be read here.'; return; }
     if (tok !== ticket) return;
     hands = lib.hands;
-    await M().load();
+    await M().load(hands);
     if (tok !== ticket) return;
     mine = new Set(hands.map(h => h.hero).filter(Boolean));
     fillGames();

@@ -32,7 +32,7 @@
 (function (global) {
   'use strict';
 
-  const VER = 2, BIG = 0.05;
+  const VER = 3, BIG = 0.05;
   const LOCAL = typeof location === 'undefined' || location.protocol === 'file:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
   const WORKERS = LOCAL ? 4 : 1;      // hosted, the solver is the one the public site is playing on
   const GIVE_UP = 25;                 // failures in a row: the solver has gone
@@ -67,22 +67,29 @@
   }
 
   /* ---------- grades, kept across visits like the luck table ---------- */
-  let cache = null;
-  async function load() {
-    if (cache) return cache;
-    cache = {};
-    try {
-      const c = await global.PSDB.getMeta('mistakes');
-      if (c && (c.v === VER || c.v === 1)) cache = c.map || {};
-      // v1 graded under the old draw brains; they differ only after the last draw
-      if (c && c.v === 1) for (const k in cache) if (cache[k].some(r => /^After 3rd/.test(r.t))) delete cache[k];
-    } catch (e) { }
+  let cache = null, oldHoldem = false;
+  async function load(hands) {
+    if (!cache) {
+      cache = {};
+      try {
+        const c = await global.PSDB.getMeta('mistakes');
+        if (c && (c.v === VER || c.v === 2 || c.v === 1)) cache = c.map || {};
+        // v1 graded under the old draw brains; they differ only after the last draw
+        if (c && c.v === 1) for (const k in cache) if (cache[k].some(r => /^After 3rd/.test(r.t))) delete cache[k];
+        oldHoldem = !!c && c.v < VER;
+      } catch (e) { }
+    }
+    // before v3, Hold'em came from time-limited solves.  A grade doesn't name its game, so this waits for the hands
+    if (oldHoldem && hands) {
+      for (const x of seats(hands)) if (x.h.game.key === 'holdem') delete cache[x.key];
+      oldHoldem = false;
+    }
     return cache;
   }
   async function save() { try { await global.PSDB.setMeta('mistakes', { v: VER, map: cache }); } catch (e) { console.warn('mistakes', e); } }
 
   async function pending(hands) {
-    await load();
+    await load(hands);
     return seats(hands).filter(x => !cache[x.key] && !closed(x.h));
   }
 
@@ -130,9 +137,13 @@
     if (fams.has('draw')) up.draw = (await S().ping('draw')).ok;
     const queue = todo.filter(x => up[S().support(x.h.game.key).fam]);
     let i = 0, done = 0, failed = 0, row = 0, saved = Date.now(), t0 = Date.now();
+    // Hold'em turn solves queue behind one lock on the server, so side by side they only wait,
+    // past two minutes at four workers, long enough for a browser to give up.  Single file.
+    let line = Promise.resolve();
+    const grade = x => x.h.game.key === 'holdem' ? (line = line.then(() => gradeSeat(x))) : gradeSeat(x);
     const work = async () => {
       while (i < queue.length && !stopped() && row < GIVE_UP) {
-        const x = queue[i++], rows = await gradeSeat(x);
+        const x = queue[i++], rows = await grade(x);
         if (rows) { cache[x.key] = rows; done++; row = 0; } else { failed++; row++; }
         if (onProgress) onProgress(done + failed, queue.length);
         if (Date.now() - t0 > 40) { await new Promise(r => setTimeout(r, 0)); t0 = Date.now(); }
