@@ -237,7 +237,7 @@
   }
 
   /* ---------- solver scorecard: every decision in the tournament, graded ---------- */
-  const SCORE_V = 1, scoreKey = tid => 'solverScore.' + tid;
+  const SCORE_V = 2, scoreKey = tid => 'solverScore.' + tid;
   const count = list => {
     const c = { correct: 0, incorrect: 0, split: 0, none: 0 };
     list.forEach(d => c[d.grade]++);
@@ -347,7 +347,9 @@
       const b = el('button', 'btn', 'Grade every decision with the solver');
       b.onclick = () => { b.disabled = true; solverPass(holder, R, tid).then(() => { b.disabled = false; b.textContent = 'Check again'; }); };
       const saved = await PSDB.getMeta(scoreKey(tid)).catch(() => null);
-      if (saved && saved.v === SCORE_V) { renderScore(holder, saved, tid); b.textContent = 'Check again'; }
+      // v1 graded under the old draw brains; they differ only after the last draw
+      const fresh = saved && (saved.v === SCORE_V || saved.v === 1 && !saved.d.some(d => /^After 3rd/.test(d.street)));
+      if (fresh) { renderScore(holder, saved, tid); b.textContent = 'Check again'; }
       box.appendChild(holder);
       box.appendChild(b);
     }
