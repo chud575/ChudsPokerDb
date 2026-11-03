@@ -237,7 +237,7 @@
   }
 
   /* ---------- solver scorecard: every decision in the tournament, graded ---------- */
-  const SCORE_V = 3, scoreKey = tid => 'solverScore.' + tid;
+  const SCORE_V = 4, scoreKey = tid => 'solverScore.' + tid;
   const count = list => {
     const c = { correct: 0, incorrect: 0, split: 0, none: 0 };
     list.forEach(d => c[d.grade]++);
@@ -347,8 +347,11 @@
       const b = el('button', 'btn', 'Grade every decision with the solver');
       b.onclick = () => { b.disabled = true; solverPass(holder, R, tid).then(() => { b.disabled = false; b.textContent = 'Check again'; }); };
       const saved = await PSDB.getMeta(scoreKey(tid)).catch(() => null);
-      // v1 graded under the old draw brains; they differ only after the last draw.  Before v3, Hold'em came from time-limited solves
-      const old = d => saved.v === 1 && /^After 3rd/.test(d.street) || d.game === "Hold'em" && d.grade !== 'none';
+      // v1 graded under the old draw brains; they differ only after the last draw.  Before v3, Hold'em came from
+      // time-limited solves.  Before v4, the draw brains had not re-solved the betting with one draw left onwards
+      const DRAWN = ['2-7 Triple Draw', 'A-5 Triple Draw', 'Badugi'];
+      const old = d => saved.v === 1 && /^After 3rd/.test(d.street) || d.grade !== 'none'
+        && (saved.v < 3 && d.game === "Hold'em" || saved.v < 4 && DRAWN.includes(d.game));
       const fresh = saved && (saved.v === SCORE_V || !saved.d.some(old));
       if (fresh) { renderScore(holder, saved, tid); b.textContent = 'Check again'; }
       box.appendChild(holder);
