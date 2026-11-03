@@ -32,7 +32,7 @@
 (function (global) {
   'use strict';
 
-  const VER = 4, BIG = 0.05;
+  const VER = 5, BIG = 0.05;
   const LOCAL = typeof location === 'undefined' || location.protocol === 'file:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
   const WORKERS = LOCAL ? 4 : 1;      // hosted, the solver is the one the public site is playing on
   const GIVE_UP = 25;                 // failures in a row: the solver has gone
@@ -77,8 +77,10 @@
         // v1 graded under the old draw brains; they differ only after the last draw
         if (c && c.v === 1) for (const k in cache) if (cache[k].some(r => /^After 3rd/.test(r.t))) delete cache[k];
         // before v3, Hold'em came from time-limited solves; before v4, the draw brains had not
-        // re-solved the betting with one draw left, the last draw and the river
-        if (c && c.v < 4) stale = new Set(['td27', 'a5td', 'badugi']);
+        // re-solved the betting with one draw left, the last draw and the river; before v5,
+        // A-5 six-handed had a shorter re-solve
+        if (c && c.v < 5) stale = new Set(['a5td']);
+        if (c && c.v < 4) { stale.add('td27'); stale.add('badugi'); }
         if (c && c.v < 3) stale.add('holdem');
       } catch (e) { }
     }

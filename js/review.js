@@ -237,7 +237,7 @@
   }
 
   /* ---------- solver scorecard: every decision in the tournament, graded ---------- */
-  const SCORE_V = 4, scoreKey = tid => 'solverScore.' + tid;
+  const SCORE_V = 5, scoreKey = tid => 'solverScore.' + tid;
   const count = list => {
     const c = { correct: 0, incorrect: 0, split: 0, none: 0 };
     list.forEach(d => c[d.grade]++);
@@ -351,7 +351,8 @@
       // time-limited solves.  Before v4, the draw brains had not re-solved the betting with one draw left onwards
       const DRAWN = ['2-7 Triple Draw', 'A-5 Triple Draw', 'Badugi'];
       const old = d => saved.v === 1 && /^After 3rd/.test(d.street) || d.grade !== 'none'
-        && (saved.v < 3 && d.game === "Hold'em" || saved.v < 4 && DRAWN.includes(d.game));
+        && (saved.v < 3 && d.game === "Hold'em" || saved.v < 4 && DRAWN.includes(d.game)
+          || saved.v < 5 && d.game === 'A-5 Triple Draw');
       const fresh = saved && (saved.v === SCORE_V || !saved.d.some(old));
       if (fresh) { renderScore(holder, saved, tid); b.textContent = 'Check again'; }
       box.appendChild(holder);
