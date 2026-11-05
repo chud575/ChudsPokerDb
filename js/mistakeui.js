@@ -239,8 +239,22 @@
     const b = $('#miRun');
     b.textContent = running ? 'Stop' : 'Grade ' + fmt(T.waiting) + ' hands';
     b.style.display = running || T.waiting ? '' : 'none';
+    // regrade: ask the solver again about hands already graded, e.g. after a brain is retrained
+    const again = $('#miRedo'), can = running ? 0 : M().regradable(hands, st.game);
+    again.textContent = 'Regrade ' + (st.game ? gameLabel(st.game) : 'all games');
+    again.title = 'Ask the solver again about the ' + fmt(can) + ' graded hands' + (st.game ? ' in ' + gameLabel(st.game) : '') + '. Their grades stay until each is redone.';
+    again.style.display = can ? '' : 'none';
     list(T);
     return T;
+  }
+
+  const gameLabel = k => { const o = [...$('#miGame').options].find(o => o.value === k); return o ? o.textContent : k; };
+  async function regradeNow() {
+    if (running) return;
+    const n = M().regradable(hands, st.game), what = st.game ? gameLabel(st.game) : 'every game';
+    if (!n || !confirm('Regrade ' + fmt(n) + ' graded hands in ' + what + '?\n\nThe solver is asked about each one again. Their current grades stay until each hand is redone, so you can stop at any time.')) return;
+    await M().regrade(hands, st.game);
+    start();
   }
 
   async function render() {
@@ -265,6 +279,7 @@
 
   function init() {
     $('#miRun').onclick = start;
+    $('#miRedo').onclick = regradeNow;
     $('#miGame').onchange = e => { st.game = e.target.value; save(); render(); };
     $('#miMin').onchange = e => { st.min = +e.target.value; save(); render(); };
     $('#miFind').oninput = e => { st.find = e.target.value.trim(); renderTable(); };

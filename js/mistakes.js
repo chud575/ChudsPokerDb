@@ -67,13 +67,15 @@
   }
 
   /* ---------- grades, kept across visits like the luck table ---------- */
-  let cache = null, stale = null;
+  // redo: hands the user asked to regrade.  Their old grades stand until the new ones land, so a
+  // regrade that is stopped, or that the solver drops out of, never leaves less than it found.
+  let cache = null, stale = null, redo = new Set();
   async function load(hands) {
     if (!cache) {
       cache = {};
       try {
         const c = await global.PSDB.getMeta('mistakes');
-        if (c && c.v >= 1 && c.v <= VER) cache = c.map || {};
+        if (c && c.v >= 1 && c.v <= VER) { cache = c.map || {}; redo = new Set(c.redo || []); }
         // v1 graded under the old draw brains; they differ only after the last draw
         if (c && c.v === 1) for (const k in cache) if (cache[k].some(r => /^After 3rd/.test(r.t))) delete cache[k];
         // before v3, Hold'em came from time-limited solves; before v4, the draw brains had not
@@ -91,11 +93,30 @@
     }
     return cache;
   }
-  async function save() { try { await global.PSDB.setMeta('mistakes', { v: VER, map: cache }); } catch (e) { console.warn('mistakes', e); } }
+  async function save() { try { await global.PSDB.setMeta('mistakes', { v: VER, map: cache, redo: [...redo] }); } catch (e) { console.warn('mistakes', e); } }
 
   async function pending(hands) {
     await load(hands);
-    return seats(hands).filter(x => !cache[x.key] && !closed(x.h));
+    return seats(hands).filter(x => (!cache[x.key] || redo.has(x.key)) && !closed(x.h));
+  }
+
+  /* mark every graded hand in one game ('' for all) to be asked again; returns how many */
+  async function regrade(hands, game) {
+    await load(hands);
+    let n = 0;
+    for (const x of seats(hands)) {
+      if ((game && x.h.game.key !== game) || !cache[x.key] || closed(x.h) || redo.has(x.key)) continue;
+      redo.add(x.key); n++;
+    }
+    await save();
+    return n;
+  }
+  /* graded hands in one game ('' for all) that are not already waiting for a regrade */
+  function regradable(hands, game) {
+    if (!cache) return 0;
+    let n = 0;
+    for (const x of seats(hands)) if ((!game || x.h.game.key === game) && cache[x.key] && !redo.has(x.key) && !closed(x.h)) n++;
+    return n;
   }
 
   /* the plain words for what the solver wanted, the commonest read when there are several */
@@ -149,7 +170,7 @@
     const work = async () => {
       while (i < queue.length && !stopped() && row < GIVE_UP) {
         const x = queue[i++], rows = await grade(x);
-        if (rows) { cache[x.key] = rows; done++; row = 0; } else { failed++; row++; }
+        if (rows) { cache[x.key] = rows; redo.delete(x.key); done++; row = 0; } else { failed++; row++; }
         if (onProgress) onProgress(done + failed, queue.length);
         if (Date.now() - t0 > 40) { await new Promise(r => setTimeout(r, 0)); t0 = Date.now(); }
         if (Date.now() - saved > SAVE_EVERY) { saved = Date.now(); await save(); }
@@ -224,6 +245,7 @@
       }
       const rows = cache && cache[x.key];
       if (!rows) { waiting++; continue; }
+      if (redo.has(x.key)) waiting++;          // counted on its old grades until regraded
       p.read++;
       const known = x.h.game.fam === 'draw' ? drawsToKnow(x.h, x.player) : 0;
       for (const r of rows) {
@@ -260,7 +282,7 @@
   }
 
   global.PSMistakes = {
-    BIG, load, pending, run, table, rowsOf, leakOf, closed, seats, gradeSeat,
+    BIG, load, pending, run, regrade, regradable, table, rowsOf, leakOf, closed, seats, gradeSeat,
     fresh, add, graded, misses, rate, margin,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

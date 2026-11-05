@@ -1,4 +1,4 @@
-# PokerStars Hand Replayer
+# Online Hand and Tournament Database
 
 A self-contained, offline hand-history viewer/replayer for PokerStars and Phenom Poker `.txt` histories.
 No install, no server, no dependencies — open `index.html` in a browser and drop files on it.

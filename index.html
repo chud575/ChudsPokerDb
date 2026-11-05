@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PokerStars Hand Replayer</title>
+<title>Online Hand and Tournament Database</title>
 <link rel="stylesheet" href="css/styles.css?v=20261101y">
 </head>
 <body>
 
 <header id="topbar">
   <button class="btn" id="navHome" title="Main menu">☰</button>
-  <div class="brand">♠ <span>Hand Replayer</span></div>
+  <div class="brand">♠ <span>Online Hand and Tournament Database</span></div>
 
 
   <div class="spacer"></div>
@@ -335,7 +335,7 @@
     <div id="miList" class="plList"></div>
   </aside>
   <div id="miDetail" class="screenBody">
-    <div class="miBar"><button id="miRun" class="btn" title="Ask the solver about every seen hand not graded yet"></button><span id="miStatus" class="dim"></span></div>
+    <div class="miBar"><button id="miRun" class="btn" title="Ask the solver about every seen hand not graded yet"></button><button id="miRedo" class="btn" style="display:none"></button><span id="miStatus" class="dim"></span></div>
     <div id="miSum"></div>
     <div id="miOne"></div>
   </div>
@@ -427,8 +427,8 @@
 <script src="js/drawsolver.js?v=20261102b"></script>
 <script src="js/solver.js?v=20261102b"></script>
 <script src="js/solverui.js?v=20261101a"></script>
-<script src="js/mistakes.js?v=20261105a"></script>
-<script src="js/mistakeui.js?v=20261102c"></script>
+<script src="js/mistakes.js?v=20261105b"></script>
+<script src="js/mistakeui.js?v=20261105b"></script>
 <script src="js/handreview.js?v=20261105a"></script>
 <script src="js/app.js?v=20261101y"></script>
 </body>
