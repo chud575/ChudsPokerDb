@@ -15,7 +15,10 @@
    spot is read against each villain on their own (advisor_multi).  For
    villain A, every other upcard on the table — the other villains' and any
    folded ones — is dead, out of the deck; the solver then answers as if you
-   were heads-up with A.  One answer per villain.
+   were heads-up with A.  One answer per villain.  With two or more villains
+   the server also returns the Reasoning and Deduction Engine's answer (rde):
+   those reads blended, then checked against hero's real multiway equity.
+   That one answer is what the spot is graded against.
    =========================================================================== */
 (function (global) {
   'use strict';
@@ -241,6 +244,16 @@
     const ok = per.filter(v => v.action);
     if (!ok.length) return { error: (per[0] && per[0].error) || 'no recommendation returned' };
     const one = per.length === 1;
+    // two or more villains: the server's Reasoning and Deduction Engine combines the reads into one answer
+    const rde = !one && j.rde && j.rde.action ? {
+      action: named(s, String(j.rde.action).toLowerCase()), blend: j.rde.solver_blend || null,
+      solverAction: j.rde.solver_action || '', equity: j.rde.equity, overridden: !!j.rde.overridden,
+      reasoning: j.rde.reasoning || '', model: j.rde.model || '',
+    } : null;
+    if (rde) return {
+      action: rde.action, model: rde.model, strategy: '', reasoning: rde.reasoning,
+      classProbs: rde.overridden ? null : rde.blend, rde: rde, perVillain: per,
+    };
     return {
       action: one ? ok[0].action : per.map(v => (v.action || '?') + ' vs ' + v.villain).join(' · '),
       model: ok[0].model, strategy: one ? ok[0].strategy : '',
@@ -329,6 +342,7 @@
     if (a.perVillain) {
       const reads = a.perVillain.filter(v => v.action && v.trained);
       if (!reads.length) return none('spot not in the solver table');
+      if (a.rde) return { grade: by[r.verdict] || 'none' };
       return { grade: by[verdictMulti(r.actual, reads)] };
     }
     if (!a.action) return none('no answer from the solver');
@@ -345,6 +359,7 @@
   function shareOf(r) {
     const a = r.advice || {}, m = norm(r.actual);
     const k = m === 'fold' ? 'fold' : m === 'aggressive' ? 'aggressive' : 'passive';
+    if (a.rde) return !a.rde.overridden && a.rde.blend && a.rde.blend[k] != null ? a.rde.blend[k] : null;   // overridden: one play, no mix
     if (!a.perVillain) return a.classProbs && a.classProbs[k] != null ? a.classProbs[k] : null;
     const reads = a.perVillain.filter(v => v.action && v.trained && v.probs).map(v => Object.keys(v.probs).reduce((t, x) => {
       const c = norm(x);
@@ -360,7 +375,9 @@
     for (const s of list) {
       const a = lim ? { skipped: lim } : await advise(s);
       const row = Object.assign({}, s, { advice: a });
-      row.verdict = a.perVillain ? verdictMulti(s.actual, a.perVillain)
+      if (a.rde) verdictMulti(s.actual, a.perVillain);     // marks each villain's read for display
+      row.verdict = a.rde ? verdict(s.actual, a.action, a.classProbs)
+        : a.perVillain ? verdictMulti(s.actual, a.perVillain)
         : a.drawCount != null ? (s.drawn === a.drawCount ? 'match' : 'differs')
         : a.action ? verdict(s.actual, a.action, a.classProbs) : null;
       Object.assign(row, grade(row));

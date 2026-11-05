@@ -122,7 +122,7 @@
   /* the plain words for what the solver wanted, the commonest read when there are several */
   function wanted(r) {
     const a = r.advice || {};
-    if (!a.perVillain) return S().norm(a.action);
+    if (!a.perVillain || a.rde) return S().norm(a.action);
     const n = {};
     for (const v of a.perVillain) if (v.action && v.trained) { const k = S().norm(v.action); n[k] = (n[k] || 0) + 1; }
     return Object.keys(n).sort((x, y) => n[y] - n[x])[0] || '';

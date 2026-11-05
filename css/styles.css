@@ -581,6 +581,8 @@ body:not(.view-replayer) #replayerTools{display:none}
 .svVil.differs{border-left-color:var(--bad)}
 .svVil .theirs{color:#8fd3ff;font-weight:600}
 .svVil .cards{color:var(--dim);font-variant-numeric:tabular-nums}
+.svVil.svRde{border-left-color:#8fd3ff;margin-top:5px}
+.svVil.svRde b{color:#8fd3ff}
 .svAuto{display:flex;align-items:center;gap:4px;margin:6px 0 2px;cursor:pointer}
 #solverBand{display:none;padding:7px 18px;background:#121a22;border-top:1px solid var(--line);font-size:12px;min-height:64px;box-sizing:border-box}
 #solverBand.on{display:block}

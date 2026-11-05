@@ -150,6 +150,19 @@
     return d;
   }
 
+  /* the Reasoning and Deduction Engine's one answer for a multiway stud spot */
+  function rdeLine(a) {
+    const r = a.rde, d = el('div', 'svVil svRde');
+    d.appendChild(el('b', null, 'Deduction Engine'));
+    d.appendChild(el('span', 'theirs', '  ' + r.action));
+    const bits = [];
+    if (r.equity != null) bits.push((/Stud8|Hi\/Lo/i.test(r.model) ? 'pot share ' : 'equity ') + pc(r.equity) + ' vs all');
+    if (r.overridden) bits.push('the blended solver reads said ' + r.solverAction);
+    d.appendChild(el('span', 'dim', '  ' + bits.join(' · ')));
+    if (r.reasoning) d.title = r.reasoning;
+    return d;
+  }
+
   function render(rows) {
     const body = $('#svBody');
     body.innerHTML = '';
@@ -173,13 +186,16 @@
       top.appendChild(el('span', 'st', r.streetLabel));
       top.appendChild(el('span', 'mine', 'you ' + r.actualLabel));
       const per = r.advice.perVillain;
-      if (r.advice.action && !(per && per.length > 1)) top.appendChild(el('span', 'theirs', 'solver ' + r.advice.action));
-      if (per && per.length > 1) top.appendChild(el('span', 'dim', per.length + ' villains — one heads-up read each'));
+      const rde = r.advice.rde;
+      if (r.advice.action && (rde || !(per && per.length > 1))) top.appendChild(el('span', 'theirs', 'solver ' + r.advice.action));
+      if (per && per.length > 1) top.appendChild(el('span', 'dim', per.length + ' villains — ' + (rde ? 'Deduction Engine over' : 'one') + ' heads-up read' + (rde ? 's' : ' each')));
       d.appendChild(top);
+      if (rde) d.appendChild(rdeLine(r.advice));
       if (per && (per.length > 1 || per[0].dead.length)) per.forEach(v => d.appendChild(villainLine(v)));
       const sub = el('div', 'svSub');
       if (r.advice.skipped) sub.textContent = r.advice.skipped;
       else if (r.advice.error) sub.textContent = 'solver error: ' + r.advice.error;
+      else if (rde) sub.textContent = rde.reasoning + (rde.model ? '  [' + rde.model + ']' : '');
       else if (!(per && per.length > 1)) sub.textContent = (r.advice.reasoning || r.advice.strategy || '') +
         (r.advice.model && (r.advice.reasoning || '').indexOf(r.advice.model) < 0 ? '  [' + r.advice.model + ']' : '') +
         (r.advice.note ? '  (limit solver not used: ' + r.advice.note + ')' : '');
@@ -241,6 +257,7 @@
     b.appendChild(top);
     const a = r.advice;
     if (a.skipped || a.error) { b.appendChild(el('div', 'dim', a.skipped || ('solver error: ' + a.error))); return; }
+    if (a.rde) b.appendChild(rdeLine(a));
     if (a.perVillain) a.perVillain.forEach(v => b.appendChild(villainLine(v, !!next)));
     else b.appendChild(el('div', 'svVil', (a.action || '') + (a.strategy ? '  ' + a.strategy : '') + (a.model ? '  [' + a.model + ']' : '')));
   }
