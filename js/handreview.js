@@ -12,7 +12,7 @@
 (function (global) {
   'use strict';
 
-  const VER = 6, KEEP = 50, BATCH = 8;
+  const VER = 7, KEEP = 50, BATCH = 8;
   const M = () => global.PSMistakes, S = () => global.PSSolver;
   const NAME = { c: 'ok', i: 'miss', x: 'split', n: 'none' };
 

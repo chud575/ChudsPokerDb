@@ -237,7 +237,7 @@
   }
 
   /* ---------- solver scorecard: every decision in the tournament, graded ---------- */
-  const SCORE_V = 6, scoreKey = tid => 'solverScore.' + tid;
+  const SCORE_V = 7, scoreKey = tid => 'solverScore.' + tid;
   const count = list => {
     const c = { correct: 0, incorrect: 0, split: 0, none: 0 };
     list.forEach(d => c[d.grade]++);
@@ -323,6 +323,7 @@
       rows.forEach(d => ds.push({
         i: r.i, id: r.id, game: r.game, net: r.net, cards: d.heroCards, street: d.streetLabel || d.street,
         you: d.actualLabel, solver: d.advice.action || '', strategy: d.advice.strategy || '', grade: d.grade, why: d.why,
+        mw: !!(d.advice.perVillain && d.advice.perVillain.length > 1),
       }));
     }
     out.textContent = '';
@@ -349,11 +350,13 @@
       const saved = await PSDB.getMeta(scoreKey(tid)).catch(() => null);
       // v1 graded under the old draw brains; they differ only after the last draw.  Before v3, Hold'em came from
       // time-limited solves.  Before v4, the draw brains had not re-solved the betting with one draw left onwards
-      const DRAWN = ['2-7 Triple Draw', 'A-5 Triple Draw', 'Badugi'];
+      const DRAWN = ['2-7 Triple Draw', 'A-5 Triple Draw', 'Badugi'], STUDS = ['Razz', 'Stud Hi', 'Stud Hi/Lo'];
       const old = d => saved.v === 1 && /^After 3rd/.test(d.street) || d.grade !== 'none'
         && (saved.v < 3 && d.game === "Hold'em" || saved.v < 4 && DRAWN.includes(d.game)
           || saved.v < 5 && d.game === 'A-5 Triple Draw'
-          || saved.v < 6 && (d.game === '2-7 Triple Draw' || d.game === 'Badugi'));
+          || saved.v < 6 && (d.game === '2-7 Triple Draw' || d.game === 'Badugi')
+          // before v7 multiway stud came from the old Deduction Engine; old cards don't say which were multiway
+          || saved.v < 7 && STUDS.includes(d.game));
       const fresh = saved && (saved.v === SCORE_V || !saved.d.some(old));
       if (fresh) { renderScore(holder, saved, tid); b.textContent = 'Check again'; }
       box.appendChild(holder);

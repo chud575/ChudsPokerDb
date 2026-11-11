@@ -157,7 +157,7 @@
     d.appendChild(el('span', 'theirs', '  ' + r.action));
     const bits = [];
     if (r.equity != null) bits.push((/Stud8|Hi\/Lo/i.test(r.model) ? 'pot share ' : 'equity ') + pc(r.equity) + ' vs all');
-    if (r.overridden) bits.push('the blended solver reads said ' + r.solverAction);
+    if (r.overridden && r.solverAction) bits.push('the blended solver reads said ' + r.solverAction);
     d.appendChild(el('span', 'dim', '  ' + bits.join(' · ')));
     if (r.reasoning) d.title = r.reasoning;
     return d;
@@ -188,7 +188,7 @@
       const per = r.advice.perVillain;
       const rde = r.advice.rde;
       if (r.advice.action && (rde || !(per && per.length > 1))) top.appendChild(el('span', 'theirs', 'solver ' + r.advice.action));
-      if (per && per.length > 1) top.appendChild(el('span', 'dim', per.length + ' villains — ' + (rde ? 'Deduction Engine over' : 'one') + ' heads-up read' + (rde ? 's' : ' each')));
+      if (per && per.length > 1) top.appendChild(el('span', 'dim', per.length + ' villains — ' + (rde ? 'multiway Deduction Engine' + (r.street !== '3rd' ? ' (equity against all of them; the heads-up reads are for reference)' : ' over the heads-up reads') : 'one heads-up read each')));
       d.appendChild(top);
       if (rde) d.appendChild(rdeLine(r.advice));
       if (per && (per.length > 1 || per[0].dead.length)) per.forEach(v => d.appendChild(villainLine(v)));

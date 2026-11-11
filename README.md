@@ -432,11 +432,14 @@ What it covers:
   dead. You get one answer per villain, with that read's equity (and the no-dead-cards equity when
   they differ). On 3rd street the solver keys on the exact cards rather than an equity, so dead cards
   only change the equity shown there. With two or more villains the server's **Reasoning and
-  Deduction Engine** turns those reads into one answer: it blends them, checks the result against
-  your equity (pot share in Stud Hi/Lo) against all the live villains at once, and steps the play
-  down (bet to check, call to fold) or up when the equity disagrees. That answer is shown first and
-  is what the decision is graded on; the solver's mix still counts as agreeing when the engine left
-  it alone. A server without the engine falls back to the reads: a decision that fits every read
+  Deduction Engine** gives one answer for the whole table (HORSE+ 1.11 and later). On 3rd street it
+  starts from the heads-up reads blended and steps that play up or down when your equity against
+  all the live villains disagrees. From 4th street on the heads-up solver is not consulted at all:
+  the play comes from your equity (pot share in Stud Hi/Lo) against every live board, weighted by
+  how each opponent has bet, measured against pot odds and your fair share of the pot. That answer
+  is shown first and is the one play the decision is graded on; the per-villain reads stay below it
+  for reference. Grades made before this engine (before PokerDB grade v7) are redone for stud hands
+  with three or more players. A server without the engine falls back to the reads: a decision that fits every read
   agrees, one that fits only some is marked "fits some reads, not all". This needs the HORSE+ build
   with `advisor_multi`; an older server answers heads-up spots only.
 * **Hold'em** — the N-handed limit solver gets the whole betting line, so multiway pots are read as

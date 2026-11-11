@@ -32,7 +32,7 @@
 (function (global) {
   'use strict';
 
-  const VER = 6, BIG = 0.05;
+  const VER = 7, BIG = 0.05;
   const LOCAL = typeof location === 'undefined' || location.protocol === 'file:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
   const WORKERS = LOCAL ? 4 : 1;      // hosted, the solver is the one the public site is playing on
   const GIVE_UP = 25;                 // failures in a row: the solver has gone
@@ -69,7 +69,9 @@
   /* ---------- grades, kept across visits like the luck table ---------- */
   // redo: hands the user asked to regrade.  Their old grades stand until the new ones land, so a
   // regrade that is stopped, or that the solver drops out of, never leaves less than it found.
-  let cache = null, stale = null, redo = new Set();
+  let cache = null, stale = null, staleMulti = null, redo = new Set();
+  // three or more players dealt in: the only hands that can hold a multiway spot
+  const multiway = h => (h.seats || []).filter(s => s.inHand).length >= 3;
   async function load(hands) {
     if (!cache) {
       cache = {};
@@ -80,16 +82,22 @@
         if (c && c.v === 1) for (const k in cache) if (cache[k].some(r => /^After 3rd/.test(r.t))) delete cache[k];
         // before v3, Hold'em came from time-limited solves; before v4, the draw brains had not
         // re-solved the betting with one draw left, the last draw and the river; before v5,
-        // A-5 six-handed had a shorter re-solve, and before v6 so did 2-7 and Badugi
+        // A-5 six-handed had a shorter re-solve, and before v6 so did 2-7 and Badugi.  Before v7,
+        // multiway stud was graded by the old Deduction Engine (heads-up reads blended); the
+        // HORSE+ 1.11 multiway policy replaced it, so stud hands with 3+ players are asked again
+        if (c && c.v < 7) staleMulti = new Set(['razz', 'stud', 'stud8']);
         if (c && c.v < 6) stale = new Set(['td27', 'badugi']);
         if (c && c.v < 5) stale.add('a5td');
         if (c && c.v < 3) stale.add('holdem');
       } catch (e) { }
     }
     // a grade doesn't name its game, so this waits for the hands
-    if (stale && hands) {
-      for (const x of seats(hands)) if (stale.has(x.h.game.key)) delete cache[x.key];
-      stale = null;
+    if ((stale || staleMulti) && hands) {
+      for (const x of seats(hands)) {
+        const k = x.h.game.key;
+        if ((stale && stale.has(k)) || (staleMulti && staleMulti.has(k) && multiway(x.h))) delete cache[x.key];
+      }
+      stale = staleMulti = null;
     }
     return cache;
   }
