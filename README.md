@@ -216,7 +216,12 @@ no mismatches in any game.
 **✚ New hand** in the top bar opens a composer for hypotheticals — the spot you want to teach, not
 one you happened to play.
 
-Pick the game and stakes, name the players and their stacks, click the card slots and deal from a
+Pick the game and stakes, then seat the players. Each seat can be **anyone in your database** — type
+in its name box and the names from your imported library come up, your own accounts first (the box
+turns green for a known player) — or **anonymous** (a generic name like "Player 2", tied to nobody).
+Two seats can't share a name. Built hands are never added to the library, so whoever sits in one, it
+is not counted in anyone's stats (Your numbers, Mistake rate, the player database, tournament
+reviews). Set their stacks, click the card slots and deal from a
 52-card grid (used cards grey out, and it advances to the next empty slot so you can click a whole
 hand in without stopping), then list the action street by street.
 

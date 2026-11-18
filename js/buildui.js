@@ -13,6 +13,41 @@
 
   let m = null, slot = null, lastText = '';
 
+  /* ---------- who can sit in a seat: anyone in the library, or nobody in particular ----------
+     The names come from the imported library (your own accounts first).  A seat whose name is
+     not one of them is anonymous.  Built hands never enter the library, so whoever sits in one,
+     it is not counted in anyone's stats. */
+  let people = null, mine = new Set(), peopleJob = null;
+  function loadPeople() {
+    if (peopleJob) return peopleJob;
+    peopleJob = (async () => {
+      const n = {};
+      try {
+        mine = new Set(Object.keys(await PSDB.heroes()));
+        const lib = await PSHome.library();
+        for (const h of lib.hands) for (const s of h.seats) n[s.name] = (n[s.name] || 0) + 1;
+      } catch (e) { console.warn('builder players', e); }
+      people = n;
+      fillPeople();
+      if (m && $('#bldModal').classList.contains('open')) render();
+    })();
+    return peopleJob;
+  }
+  function fillPeople() {
+    const dl = $('#bldPlayers');
+    if (!dl || !people) return;
+    dl.innerHTML = '';
+    const names = Object.keys(people).sort((a, b) => (mine.has(b) - mine.has(a)) || people[b] - people[a]);
+    for (const nm of names) {
+      const o = document.createElement('option');
+      o.value = nm;
+      o.label = (mine.has(nm) ? 'you · ' : '') + people[nm].toLocaleString() + ' hand' + (people[nm] === 1 ? '' : 's');
+      dl.appendChild(o);
+    }
+  }
+  const known = name => !!(people && people[name]);
+  const anonName = s => 'Player ' + s.seat;
+
   /* ---------- saved-hand library ---------- */
   const readLib = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; } };
   const writeLib = a => { try { localStorage.setItem(KEY, JSON.stringify(a)); } catch (e) { console.warn(e); } };
@@ -29,6 +64,7 @@
     slot = null;
     $('#bldModal').classList.add('open');
     render();
+    loadPeople();
   }
   const close = () => $('#bldModal').classList.remove('open');
 
@@ -64,12 +100,37 @@
 
     /* ---- seats ---- */
     form.appendChild(el('h4', 'sec', 'Players'));
+    form.appendChild(el('div', 'tHint bldWhoHint', people
+      ? 'Type in a name box to seat anyone from your database, or press anonymous. Built hands are never counted in anyone\'s stats.'
+      : 'Loading the players in your database… meanwhile seats are anonymous, or type any name.'));
     const need = PSBuilder.seatCardCount(m);
     m.seats.forEach((s, i) => {
       const r = el('div', 'bldSeat');
-      const nm = el('input', 'bldName'); nm.value = s.name;
-      nm.oninput = () => { renameSeat(s, nm.value); };
+      const nm = el('input', 'bldName' + (known(s.name) ? ' known' : ''));
+      nm.value = s.name; nm.setAttribute('list', 'bldPlayers'); nm.spellcheck = false;
+      nm.placeholder = 'player or anonymous';
+      nm.title = known(s.name) ? s.name + ' — ' + people[s.name].toLocaleString() + ' hands in your database' + (mine.has(s.name) ? ' (one of your accounts)' : '')
+        : 'Anonymous — not a player in your database. Type to find one.';
+      const anon = el('button', 'bldTag' + (known(s.name) ? '' : ' on'), 'anonymous');
+      anon.title = 'Not anyone in your database';
+      nm.oninput = () => {
+        const v = nm.value.trim();
+        const clash = !v || m.seats.some(x => x !== s && x.name === v);
+        nm.classList.toggle('bad', clash);
+        nm.title = !v ? 'A seat needs a name' : clash ? 'Another seat already has this name' : nm.title;
+        if (clash) return;
+        renameSeat(s, v);
+        nm.classList.toggle('known', known(v));
+        anon.classList.toggle('on', !known(v));
+      };
+      nm.onchange = () => { if (nm.classList.contains('bad')) { nm.value = s.name; nm.classList.remove('bad'); } render(); };
+      anon.onclick = () => {
+        let v = anonName(s);
+        for (let k = 1; m.seats.some(x => x !== s && x.name === v); k++) v = 'Player ' + s.seat + '-' + k;
+        renameSeat(s, v); render();
+      };
       r.appendChild(nm);
+      r.appendChild(anon);
       r.appendChild(num(s.stack, v => s.stack = v, 'bldStack'));
       const h = el('button', 'bldTag' + (s.hero ? ' on' : ''), 'hero');
       h.title = 'Whose hole cards the replay shows';
@@ -213,6 +274,7 @@
   function renameSeat(s, name) {
     const old = s.name;
     s.name = name;
+    if (slot && slot.name === old) slot.name = name;
     if (m.draws[old]) { m.draws[name] = m.draws[old]; delete m.draws[old]; }
     Object.values(m.actions).forEach(list => list.forEach(a => { if (a.name === old) a.name = name; }));
     preview();

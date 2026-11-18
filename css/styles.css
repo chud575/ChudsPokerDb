@@ -381,11 +381,14 @@ textarea.dictating,input.dictating{border-color:#c14a4a;box-shadow:0 0 0 2px rgb
 .bldLab{display:flex;flex-direction:column;gap:3px;font-size:10.5px;color:var(--dim2)}
 .bldLab select,.bldNum,.bldName,.bldStack,.bldAmt{background:var(--bg3);border:1px solid var(--line);
   border-radius:6px;padding:4px 6px;color:var(--fg)}
-.bldNum{width:82px}.bldName{width:120px}.bldStack{width:82px}.bldAmt{width:82px}
+.bldNum{width:82px}.bldName{width:150px}.bldStack{width:82px}.bldAmt{width:82px}
 .bldSeat{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid #1e2530;flex-wrap:wrap}
 .bldTag{background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:3px 8px;
   font-size:10.5px;cursor:pointer;color:var(--dim)}
 .bldTag.on{background:#294567;border-color:#5ea9ff;color:#fff}
+.bldName.known{border-color:#3f7a55;color:#cfeedd}
+.bldName.bad{border-color:var(--bad);color:#ffb3bd}
+.bldWhoHint{margin:0 0 4px}
 .bldX{background:none;border:none;color:#7d8899;cursor:pointer;font-size:12px}
 .bldX:hover{color:var(--bad)}
 .bldCards{display:flex;gap:3px;flex-wrap:wrap}
